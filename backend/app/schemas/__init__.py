@@ -1,0 +1,1 @@
+# CraftShield schemas package

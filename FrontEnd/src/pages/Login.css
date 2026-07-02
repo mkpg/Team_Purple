@@ -1,0 +1,302 @@
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  font-family: var(--font-family-body);
+  overflow: hidden;
+  padding: var(--spacing-md);
+}
+
+.login-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 70% 30%, rgba(197, 160, 89, 0.15), transparent 60%),
+              radial-gradient(circle at 20% 80%, rgba(45, 90, 90, 0.2), transparent 50%);
+  z-index: 1;
+}
+
+.login-card {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 520px;
+  background: rgba(13, 28, 50, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(197, 160, 89, 0.2);
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: var(--spacing-md) var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.login-logo {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.login-logo .logo-icon {
+  color: var(--color-secondary);
+  filter: drop-shadow(0 0 10px rgba(197, 160, 89, 0.4));
+  margin-bottom: var(--spacing-sm);
+}
+
+.login-logo h2 {
+  font-family: var(--font-family-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  margin-bottom: 0;
+}
+
+.login-logo p {
+  font-size: 14px;
+  color: var(--color-on-primary-container);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.auth-tab-switchers {
+  display: flex;
+  background: rgba(10, 25, 47, 0.8);
+  border-radius: var(--rounded-lg);
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.auth-tab-switchers .tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-base);
+  background: transparent;
+  border: none;
+  color: var(--color-on-primary-container);
+  padding: 10px;
+  font-family: var(--font-family-body);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--rounded-md);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.auth-tab-switchers .tab-btn.active {
+  background: var(--color-secondary);
+  color: #1c1c19;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(197, 160, 89, 0.25);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.scrollable-form {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: var(--spacing-xs);
+}
+
+/* Custom Scrollbar for registration form */
+.scrollable-form::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollable-form::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--rounded-full);
+}
+
+.scrollable-form::-webkit-scrollbar-thumb {
+  background: rgba(197, 160, 89, 0.3);
+  border-radius: var(--rounded-full);
+}
+
+.scrollable-form::-webkit-scrollbar-thumb:hover {
+  background: rgba(197, 160, 89, 0.6);
+}
+
+.role-selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-xs);
+}
+
+.role-selector .input-label {
+  color: var(--color-on-primary-container);
+}
+
+.role-btns {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.role-btn {
+  flex: 1;
+  background: rgba(10, 25, 47, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--color-on-primary-container);
+  padding: 8px var(--spacing-sm);
+  border-radius: var(--rounded-md);
+  cursor: pointer;
+  font-family: var(--font-family-body);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+
+.role-btn:hover {
+  border-color: rgba(197, 160, 89, 0.4);
+  color: #ffffff;
+}
+
+.role-btn.active {
+  background: rgba(197, 160, 89, 0.12);
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+  font-weight: 600;
+}
+
+.input-grid {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.input-grid > .input-group {
+  flex: 1;
+}
+
+.login-card .input-group {
+  margin-bottom: var(--spacing-xs);
+}
+
+.login-card .input-label {
+  color: var(--color-on-primary-container);
+  font-size: 11px;
+}
+
+.login-card .input-field {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.login-card .input-field::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.login-card .input-field:focus {
+  border-bottom: 2px solid var(--color-secondary);
+}
+
+.text-area-field {
+  min-height: 80px;
+  resize: vertical;
+  line-height: 1.4;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: var(--rounded-md);
+  padding: 8px var(--spacing-sm) !important;
+}
+
+.text-area-field:focus {
+  border-color: var(--color-secondary) !important;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}
+
+.artisan-fields-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.border-t {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pt-4 {
+  padding-top: 1rem;
+}
+
+.text-secondary {
+  color: var(--color-secondary) !important;
+}
+
+/* Demo Credentials Section */
+.demo-credentials {
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.demo-title {
+  text-align: center;
+  color: var(--color-on-primary-container);
+  font-size: 11px;
+}
+
+.demo-grid {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.demo-btn {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.7);
+  padding: 6px 4px;
+  font-size: 11px;
+  border-radius: var(--rounded-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.demo-btn:hover {
+  background: rgba(197, 160, 89, 0.1);
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
