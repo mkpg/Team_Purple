@@ -1,4 +1,4 @@
-# 🛡️ CraftShield
+### RetailVault
 
 ### Creator Protection Platform for Artisans
 
@@ -104,7 +104,14 @@ Development will begin with the frontend, backend, database integration, and aut
 * Sprint 6 – Reviews, Analytics & Deployment
 
 ---
+## Team
+* Lajwanthi S R - Product Manager
+* Jayasri J - Business Analyst
+* Vasantha N - Tester
+* Varunprasad V - Front-End Developer
+* Manikanda Prabu V K - Backend Developer
 
+---
 ## 🌟 Vision
 
 To become a trusted creator-protection ecosystem that empowers artisans to manage custom orders securely while protecting their creativity, payments, and business relationships.
