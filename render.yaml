@@ -1,0 +1,37 @@
+services:
+  # 1. FastAPI Backend Web Service
+  - type: web
+    name: craftshield-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_NAME
+        value: craftshield
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+      - key: DEBUG
+        value: "False"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URL
+        sync: false # Will require MongoDB Atlas URI input in the Render Dashboard
+
+  # 2. React Frontend Static Site
+  - type: static
+    name: craftshield-frontend
+    runtime: static
+    rootDir: FrontEnd
+    buildCommand: "npm install && npm run build"
+    publishPath: dist
+    routes:
+      # Direct all routing requests to index.html for React Router SPA
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://craftshield-backend.onrender.com

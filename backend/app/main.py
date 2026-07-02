@@ -1,8 +1,13 @@
+import os
+import uuid
+import shutil
 import logging
+from typing import List
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, status, File, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import get_database, seed_database
@@ -14,6 +19,9 @@ from app.routes.admin import router as admin_router
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Ensure uploads directory exists
+os.makedirs("uploads", exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +45,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Mount Static Files for Uploads
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # CORS Configuration
 # Allow local React frontend servers (Vite uses 5173, CRA uses 3000)
 origins = [
@@ -59,6 +70,25 @@ app.include_router(auth_router)
 app.include_router(client_router)
 app.include_router(artisan_router)
 app.include_router(admin_router)
+
+# Multi-Image File Uploading Route
+@app.post("/api/upload", tags=["Upload"])
+async def upload_files(files: List[UploadFile] = File(...)):
+    urls = []
+    for file in files:
+        # Create a unique filename
+        ext = os.path.splitext(file.filename)[1]
+        unique_filename = f"{uuid.uuid4()}{ext}"
+        filepath = os.path.join("uploads", unique_filename)
+        
+        # Save file to disk
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Return URL path
+        urls.append(f"/uploads/{unique_filename}")
+        
+    return {"urls": urls}
 
 # Health Check / Root Endpoint
 @app.get("/", tags=["Health"])

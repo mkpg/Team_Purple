@@ -177,3 +177,74 @@ class OrderService:
         order["updated_at"] = datetime.utcnow()
         
         return serialize_doc(order)
+
+    @staticmethod
+    async def cancel_order_by_client(order_id_str: str, client_id_str: str) -> dict:
+        """Allow client to cancel the order within 24 hours of creation, refunding 50% of the advance if paid."""
+        orders_coll = get_collection("orders")
+        payments_coll = get_collection("payments")
+        
+        try:
+            order_oid = ObjectId(order_id_str)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid order ID format")
+            
+        order = await orders_coll.find_one({"_id": order_oid})
+        if not order:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+            
+        if str(order["client_id"]) != client_id_str:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this order")
+            
+        if order["status"] == "Cancelled":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order is already cancelled")
+            
+        if order["status"] in {"Completed", "Delivered", "Disputed"}:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Order cannot be cancelled in status: {order['status']}")
+            
+        # Enforce 24 hours cancellation limit
+        time_diff = datetime.utcnow() - order["created_at"]
+        if time_diff.total_seconds() > 24 * 3600:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Orders can only be cancelled within 24 hours of booking"
+            )
+            
+        # Check if advance payment has been secured
+        advance_payment = await payments_coll.find_one({
+            "order_id": order_oid,
+            "payment_type": "advance",
+            "status": "secured"
+        })
+        
+        repaid_amount = 0.0
+        if advance_payment and order["advance_amount"] > 0:
+            repaid_amount = order["advance_amount"] * 0.5
+            refund_doc = {
+                "order_id": order_oid,
+                "client_id": ObjectId(client_id_str),
+                "artisan_id": order["artisan_id"],
+                "payment_type": "refund",
+                "amount": repaid_amount,
+                "status": "repaid",
+                "transaction_reference": f"REFUND-{order_id_str[:8].upper()}-{int(datetime.utcnow().timestamp())}",
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            await payments_coll.insert_one(refund_doc)
+            
+        # Cancel order
+        await orders_coll.update_one(
+            {"_id": order_oid},
+            {"$set": {
+                "status": "Cancelled", 
+                "refunded_amount": repaid_amount,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        
+        order["status"] = "Cancelled"
+        order["refunded_amount"] = repaid_amount
+        order["updated_at"] = datetime.utcnow()
+        
+        return serialize_doc(order)

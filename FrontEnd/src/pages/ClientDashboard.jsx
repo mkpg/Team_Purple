@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { Package, Truck, CheckCircle2, IndianRupee, Hammer, Send, Eye, FileText, ShoppingBag, CreditCard } from 'lucide-react';
+import { Package, Truck, CheckCircle2, IndianRupee, Hammer, Send, Eye, FileText, ShoppingBag, CreditCard, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CraftShieldContext } from '../context/CraftShieldContext';
@@ -17,8 +17,165 @@ const itemVariants = {
   visible: { y: 0, opacity: 1 }
 };
 
+function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen }) {
+  const { t, language, API_BASE_URL } = useContext(CraftShieldContext);
+
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/uploads')) {
+      return `${API_BASE_URL}${url}`;
+    }
+    return url;
+  };
+
+  const images = [product.image_url, ...(product.image_urls || [])].filter(Boolean).map(getImageUrl);
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  const nextImage = (e) => {
+    e.stopPropagation();
+    setCurrentIdx((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = (e) => {
+    e.stopPropagation();
+    setCurrentIdx((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const getDaysTranslation = () => {
+    if (language === 'ta') return 'நாட்கள்';
+    if (language === 'te') return 'రోజులు';
+    if (language === 'kn') return 'ದಿನಗಳು';
+    if (language === 'ml') return 'ദിവസങ്ങൾ';
+    return 'days';
+  };
+
+  return (
+    <div className="card product-card">
+      <div className="product-image-wrapper" style={{ position: 'relative', overflow: 'hidden' }}>
+        <img src={images[currentIdx]} alt={product.name} className="product-image" style={{ width: '100%', height: '220px', objectFit: 'cover' }} />
+        <div className="product-category-badge label-sm">{t(product.category)}</div>
+        
+        {images.length > 1 && (
+          <>
+            <button 
+              type="button"
+              onClick={prevImage}
+              style={{
+                position: 'absolute',
+                left: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                zIndex: 10
+              }}
+            >
+              ‹
+            </button>
+            <button 
+              type="button"
+              onClick={nextImage}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                zIndex: 10
+              }}
+            >
+              ›
+            </button>
+            <div 
+              style={{
+                position: 'absolute',
+                bottom: '8px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                fontSize: '10px',
+                zIndex: 10
+              }}
+            >
+              {currentIdx + 1} / {images.length}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="card-content">
+        <h4 className="headline-sm">{t(product.name)}</h4>
+        <p className="body-sm text-muted line-clamp">{t(product.description)}</p>
+        <div className="product-specifications">
+          <span className="spec-label">{t('material')}: <strong>{t(product.material)}</strong></span>
+          <span className="spec-label">{t('delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
+        </div>
+        <div className="product-card-footer border-t pt-4 mt-4">
+          <span className="display-sm font-bold text-secondary">{formatCurrency(product.price)}</span>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setRequestForm(prev => ({
+                ...prev,
+                artisan_id: product.artisan_id,
+                jewellery_type: product.category,
+                description: `Inquiry regarding: ${product.name}. Preferred customizations details...`,
+                material_preference: product.material,
+                budget: product.price
+              }));
+              setIsRequestModalOpen(true);
+            }}
+          >
+            {t('requestCustomMock')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReferenceImageSection({ url, getImageUrl }) {
+  const [error, setError] = useState(false);
+  if (error || !url) return null;
+  return (
+    <div className="reference-image-preview mt-4">
+      <span className="label-sm text-muted block mb-1">Reference Design:</span>
+      <img 
+        src={getImageUrl(url)} 
+        alt="Reference Design" 
+        onError={() => setError(true)}
+        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--color-outline)' }} 
+      />
+    </div>
+  );
+}
+
 export default function ClientDashboard() {
   const {
+    API_BASE_URL,
     clientStats,
     verifiedArtisans,
     marketplaceProducts,
@@ -31,13 +188,28 @@ export default function ClientDashboard() {
     rejectQuotation,
     payAdvance,
     payFinal,
-    completeOrder
+    completeOrder,
+    cancelOrder,
+    uploadImages,
+    t,
+    language
   } = useContext(CraftShieldContext);
+
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/uploads')) {
+      return `${API_BASE_URL}${url}`;
+    }
+    return url;
+  };
 
   const [activeTab, setActiveTab] = useState('marketplace'); // marketplace, requests, orders, payments
   
   // Custom Request Modal State
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgressMessage, setUploadProgressMessage] = useState('');
+
   const [requestForm, setRequestForm] = useState({
     artisan_id: '',
     jewellery_type: '',
@@ -47,8 +219,31 @@ export default function ClientDashboard() {
     quantity: 1,
     budget: '',
     expected_delivery_date: '',
-    reference_image_url: 'https://images.unsplash.com/photo-1599643478524-fb66f70a0066?w=500&q=80'
+    reference_image_url: ''
   });
+
+  const handleReferenceFileChange = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    setUploadProgressMessage('Uploading reference image...');
+    try {
+      const urls = await uploadImages(files);
+      if (urls && urls.length > 0) {
+        setRequestForm(prev => ({
+          ...prev,
+          reference_image_url: urls[0]
+        }));
+        setUploadProgressMessage('Reference image uploaded successfully!');
+        toast.success('Uploaded reference image.');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Reference upload failed');
+      setUploadProgressMessage('Upload failed.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -159,9 +354,28 @@ export default function ClientDashboard() {
   const handleConfirmDelivery = async (orderId) => {
     try {
       await completeOrder(orderId);
-      toast.success('Order completed! Escrow funds released.');
+      toast.success('Order completed! Funds released.');
     } catch (err) {
       toast.error(err.message || 'Failed to complete order');
+    }
+  };
+
+  const canCancel = (order) => {
+    if (['Cancelled', 'Completed', 'Delivered', 'Disputed'].includes(order.status)) return false;
+    const createdDate = new Date(order.created_at);
+    const timeDiff = new Date() - createdDate;
+    return timeDiff < 24 * 3600 * 1000;
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm(t('cancelBookingConfirm'))) {
+      return;
+    }
+    try {
+      await cancelOrder(orderId);
+      toast.success(t('cancelSuccess'));
+    } catch (err) {
+      toast.error(err.response?.data?.detail || err.message || t('cancelError'));
     }
   };
 
@@ -196,26 +410,32 @@ export default function ClientDashboard() {
       {/* Header and Stats */}
       <div className="dashboard-header">
         <div>
-          <h2 className="headline-lg">Client Portal</h2>
-          <p className="body-md text-muted">Purchase certified products or request tailored custom designs from verified artisans.</p>
+          <h2 className="headline-lg">{t('clientPortal')}</h2>
+          <p className="body-md text-muted">
+            {language === 'ta' ? 'சரிபார்க்கப்பட்ட கைவினைஞர்களிடமிருந்து சான்றளிக்கப்பட்ட நகைகளை வாங்கவும் அல்லது உங்களுக்கேற்ற வடிவமைப்பை கோரவும்.' : 
+             language === 'te' ? 'ధృవీకరించబడిన కళాకారుల నుండి సర్టిఫైడ్ ఉత్పత్తులను కొనుగోలు చేయండి లేదా కస్టమ్ డిజైన్లను అభ్యర్థించండి.' : 
+             language === 'kn' ? 'ದೃಢೀಕೃತ ಕಲಾಕಾರರಿಂದ ಪ್ರಮಾಣೀಕೃತ ಒಡವೆಗಳನ್ನು ಖರೀದಿಸಿ ಅಥವಾ ಕಸ್ಟಮ್ ವಿನ್ಯಾಸಗಳನ್ನು ವಿನಂತಿಸಿ.' : 
+             language === 'ml' ? 'വെരിഫൈഡ് ആർട്ടിസാൻമാരിൽ നിന്ന് സർട്ടിഫൈഡ് ഉൽപ്പന്നങ്ങൾ വാങ്ങുക അല്ലെങ്കിൽ കസ്റ്റം ഡിസൈനുകൾ ആവശ്യപ്പെടുക.' : 
+             'Purchase certified products or request tailored custom designs from verified artisans.'}
+          </p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsRequestModalOpen(true)}>
-          <Send size={16} /> Custom Request
+          <Send size={16} /> {t('customRequestBtn')}
         </button>
       </div>
 
       {clientStats && (
         <div className="stats-row">
           <div className="stat-card">
-            <span className="label-sm">Active Escrows</span>
+            <span className="label-sm">{t('activeEscrows')}</span>
             <h3 className="display-lg">{activeOrdersCount}</h3>
           </div>
           <div className="stat-card">
-            <span className="label-sm">Pending Quotations</span>
+            <span className="label-sm">{t('pendingQuotes')}</span>
             <h3 className="display-lg">{pendingQuotesCount}</h3>
           </div>
           <div className="stat-card">
-            <span className="label-sm">Total Spent (Escrow Released)</span>
+            <span className="label-sm">{t('totalSpent')}</span>
             <h3 className="display-lg text-green">{formatCurrency(clientStats.total_spent)}</h3>
           </div>
         </div>
@@ -227,27 +447,27 @@ export default function ClientDashboard() {
           className={`tab-link ${activeTab === 'marketplace' ? 'active' : ''}`}
           onClick={() => setActiveTab('marketplace')}
         >
-          <ShoppingBag size={18} /> Marketplace Catalog
+          <ShoppingBag size={18} /> {t('marketplace')}
         </button>
         <button 
           className={`tab-link ${activeTab === 'requests' ? 'active' : ''}`}
           onClick={() => setActiveTab('requests')}
         >
-          <FileText size={18} /> Custom Requests
+          <FileText size={18} /> {t('customRequests')}
           {pendingQuotesCount > 0 && <span className="tab-badge gold">{pendingQuotesCount}</span>}
         </button>
         <button 
           className={`tab-link ${activeTab === 'orders' ? 'active' : ''}`}
           onClick={() => setActiveTab('orders')}
         >
-          <Package size={18} /> Escrow Orders
+          <Package size={18} /> {t('escrowOrders')}
           {activeOrdersCount > 0 && <span className="tab-badge teal">{activeOrdersCount}</span>}
         </button>
         <button 
           className={`tab-link ${activeTab === 'payments' ? 'active' : ''}`}
           onClick={() => setActiveTab('payments')}
         >
-          <CreditCard size={18} /> Escrow Ledger
+          <CreditCard size={18} /> {t('escrowLedger')}
         </button>
       </div>
 
@@ -264,45 +484,19 @@ export default function ClientDashboard() {
             >
               {/* Product Grid */}
               <div className="grid-section">
-                <h3 className="headline-md">In-Stock Premium Designs</h3>
+                <h3 className="headline-md">{t('inStockDesigns')}</h3>
                 {marketplaceProducts.length === 0 ? (
-                  <div className="empty-state">No products found in store.</div>
+                  <div className="empty-state">{t('noProducts')}</div>
                 ) : (
                   <div className="products-grid">
                     {marketplaceProducts.map(product => (
-                      <div key={product.id} className="card product-card">
-                        <div className="product-image-wrapper">
-                          <img src={product.image_url} alt={product.name} className="product-image" />
-                          <div className="product-category-badge label-sm">{product.category}</div>
-                        </div>
-                        <div className="card-content">
-                          <h4 className="headline-sm">{product.name}</h4>
-                          <p className="body-sm text-muted line-clamp">{product.description}</p>
-                          <div className="product-specifications">
-                            <span className="spec-label">Material: <strong>{product.material}</strong></span>
-                            <span className="spec-label">Delivery: <strong>{product.estimated_delivery_days} days</strong></span>
-                          </div>
-                          <div className="product-card-footer border-t pt-4 mt-4">
-                            <span className="display-sm font-bold text-secondary">{formatCurrency(product.price)}</span>
-                            <button 
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                setRequestForm(prev => ({
-                                  ...prev,
-                                  artisan_id: product.artisan_id,
-                                  jewellery_type: product.category,
-                                  description: `Inquiry regarding: ${product.name}. Preferred customizations details...`,
-                                  material_preference: product.material,
-                                  budget: product.price
-                                }));
-                                setIsRequestModalOpen(true);
-                              }}
-                            >
-                              Request Custom Mock
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                      <MarketplaceProductCard 
+                        key={product.id}
+                        product={product}
+                        formatCurrency={formatCurrency}
+                        setRequestForm={setRequestForm}
+                        setIsRequestModalOpen={setIsRequestModalOpen}
+                      />
                     ))}
                   </div>
                 )}
@@ -310,9 +504,9 @@ export default function ClientDashboard() {
 
               {/* Verified Artisans list */}
               <div className="grid-section mt-8">
-                <h3 className="headline-md">Verified Master Artisans</h3>
+                <h3 className="headline-md">{t('masterArtisans')}</h3>
                 {verifiedArtisans.length === 0 ? (
-                  <div className="empty-state">No verified artisans available.</div>
+                  <div className="empty-state">{t('noArtisans')}</div>
                 ) : (
                   <div className="artisans-list">
                     {verifiedArtisans.map(artisan => (
@@ -322,11 +516,38 @@ export default function ClientDashboard() {
                             <h4 className="headline-sm">{artisan.business_name}</h4>
                             <span className="label-sm text-secondary">{artisan.jewellery_specialization}</span>
                           </div>
-                          <span className="badge badge-green">Verified</span>
+                          <span className="badge badge-green">{t('verified')}</span>
                         </div>
                         <p className="body-md text-muted mt-2">{artisan.profile_description}</p>
+                        
+                        {/* Offline contact helper */}
+                        <div className="artisan-offline-contact bg-gray-50 border p-3 rounded-lg mt-3 flex flex-column gap-2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <span className="label-sm font-semibold text-secondary flex align-center gap-1">
+                            {t('directOfflineBooking')}
+                          </span>
+                          <span className="body-sm">
+                            {language === 'ta' ? 'கைபேசி எண்' : language === 'te' ? 'ఫోన్ నంబర్' : language === 'kn' ? 'ದೂರವಾಣಿ ಸಂಖ್ಯೆ' : language === 'ml' ? 'ഫോൺ നമ്പർ' : 'Phone'}: <strong>{artisan.phone_number || '+91 98765 43210'}</strong>
+                          </span>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                            <a 
+                              href={`tel:${artisan.phone_number || '+919876543210'}`}
+                              className="btn btn-secondary btn-sm text-center"
+                              style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none', flex: 1, display: 'inline-block' }}
+                            >
+                              {t('callNow')}
+                            </a>
+                            <a 
+                              href={`sms:${artisan.phone_number || '+919876543210'}?body=${encodeURIComponent(t('directCallBody'))}`}
+                              className="btn btn-secondary btn-sm text-center"
+                              style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none', flex: 1, display: 'inline-block' }}
+                            >
+                              {t('sendSms')}
+                            </a>
+                          </div>
+                        </div>
+
                         <div className="artisan-meta border-t pt-4 mt-4">
-                          <span className="body-sm">Location: <strong>{artisan.location}</strong></span>
+                          <span className="body-sm">{t('location')}: <strong>{artisan.location}</strong></span>
                           <button 
                             className="btn btn-primary btn-sm"
                             onClick={() => {
@@ -337,7 +558,7 @@ export default function ClientDashboard() {
                               setIsRequestModalOpen(true);
                             }}
                           >
-                            Hire Artisan
+                            {t('hireArtisan')}
                           </button>
                         </div>
                       </div>
@@ -381,6 +602,7 @@ export default function ClientDashboard() {
                             <div>Material: <strong>{req.material_preference}</strong></div>
                             <div>Delivery: <strong>{new Date(req.expected_delivery_date).toLocaleDateString()}</strong></div>
                           </div>
+                          <ReferenceImageSection url={req.reference_image_url} getImageUrl={getImageUrl} />
                         </div>
                       ))}
                     </div>
@@ -449,7 +671,7 @@ export default function ClientDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="orders-panel"
             >
-              <h3 className="headline-md mb-4">Active Production Escrow</h3>
+              <h3 className="headline-md mb-4">{t('escrowOrders')}</h3>
               {clientOrders.length === 0 ? (
                 <div className="empty-state">No orders active. Accept a quote to begin an order.</div>
               ) : (
@@ -505,7 +727,7 @@ export default function ClientDashboard() {
                           <div className="actions-notes">
                             {order.status === 'Advance Payment Pending' && (
                               <p className="body-sm text-amber">
-                                ⚠️ <strong>Advance Payment Required:</strong> Artisan will not start designs or source gems until deposit is secured in escrow.
+                                ⚠️ <strong>Advance Payment Required:</strong> Artisan will not start designs or source gems until deposit is secured.
                               </p>
                             )}
                             {order.status === 'Advance Payment Secured' && (
@@ -520,7 +742,7 @@ export default function ClientDashboard() {
                             )}
                             {order.status === 'Final Payment Pending' && (
                               <p className="body-sm text-teal">
-                                ✔️ Final balance paid and held in escrow. Artisan is delivering physical shipment.
+                                ✔️ Final balance paid and held securely. Artisan is delivering physical shipment.
                               </p>
                             )}
                             {order.status === 'Delivered' && (
@@ -533,9 +755,14 @@ export default function ClientDashboard() {
                                 ✔️ Order complete. Funds released to artisan ledger. Thank you!
                               </p>
                             )}
+                            {order.status === 'Cancelled' && (
+                              <p className="body-sm text-red" style={{ color: '#e53e3e' }}>
+                                ❌ Order cancelled. {order.refunded_amount > 0 ? `Refund of ${formatCurrency(order.refunded_amount)} (50% of advance) repaid.` : 'No refund issued.'}
+                              </p>
+                            )}
                           </div>
 
-                          <div className="drawer-buttons">
+                          <div className="drawer-buttons" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             {order.status === 'Advance Payment Pending' && (
                               <button 
                                 className="btn btn-primary"
@@ -560,6 +787,15 @@ export default function ClientDashboard() {
                                 <CheckCircle2 size={16} /> Confirm Receipt & Release
                               </button>
                             )}
+                            {canCancel(order) && (
+                              <button 
+                                className="btn btn-logout"
+                                onClick={() => handleCancelOrder(order.id)}
+                                style={{ background: '#e53e3e', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <XCircle size={16} /> {t('cancelBooking')}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -578,7 +814,7 @@ export default function ClientDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="payments-panel"
             >
-              <h3 className="headline-md mb-4">Escrow Ledger Transactions</h3>
+              <h3 className="headline-md mb-4">{t('escrowLedger')}</h3>
               {clientPayments.length === 0 ? (
                 <div className="empty-state">No payment history found.</div>
               ) : (
@@ -600,7 +836,7 @@ export default function ClientDashboard() {
                           <td><span className="font-mono text-muted">{pay.transaction_reference}</span></td>
                           <td><span className="font-mono text-muted">{pay.order_id}</span></td>
                           <td>
-                            <span className={`badge ${pay.payment_type === 'advance' ? 'badge-gold' : 'badge-teal'}`}>
+                            <span className={`badge ${pay.payment_type === 'advance' ? 'badge-gold' : pay.payment_type === 'refund' ? 'badge-red' : 'badge-teal'}`}>
                               {pay.payment_type}
                             </span>
                           </td>
@@ -727,6 +963,29 @@ export default function ClientDashboard() {
             />
           </div>
 
+          <div className="input-group">
+            <label className="input-label">Reference Image URL (Optional)</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder="Enter reference image URL, or upload below"
+              value={requestForm.reference_image_url}
+              onChange={(e) => setRequestForm({ ...requestForm, reference_image_url: e.target.value })}
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Or Upload Reference Image</label>
+            <input 
+              type="file" 
+              className="input-field" 
+              accept="image/*"
+              onChange={handleReferenceFileChange}
+            />
+            {isUploading && <span className="label-sm text-secondary animate-pulse" style={{ display: 'block', marginTop: '4px' }}>Uploading file...</span>}
+            {uploadProgressMessage && <span className="label-sm text-teal" style={{ display: 'block', marginTop: '4px' }}>{uploadProgressMessage}</span>}
+          </div>
+
           <div className="modal-actions border-t pt-4">
             <button type="button" className="btn btn-secondary" onClick={() => setIsRequestModalOpen(false)}>Cancel</button>
             <button type="submit" className="btn btn-primary">Submit Design request</button>
@@ -735,13 +994,13 @@ export default function ClientDashboard() {
       </Modal>
 
       {/* Mock Payment Settlement Modal */}
-      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Escrow Payment Gateway (Mock)">
+      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title="Safe Payment Gateway (Mock)">
         {paymentTarget && (
           <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
             <div className="payment-summary">
               <p className="body-md">Settle <strong>{paymentTarget.type} payment</strong> for order <strong>{paymentTarget.orderId}</strong></p>
               <div className="payment-amount-box text-center bg-gray-100 p-4 rounded-lg my-2">
-                <span className="label-sm text-muted">Escrow Amount</span>
+                <span className="label-sm text-muted">Protected Amount</span>
                 <h3 className="display-sm text-primary">{formatCurrency(paymentTarget.amount)}</h3>
               </div>
             </div>

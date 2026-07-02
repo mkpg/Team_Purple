@@ -113,7 +113,7 @@ export default function Login() {
         <div className="login-logo">
           <Gem className="logo-icon animate-pulse" size={48} />
           <h2>CraftShield</h2>
-          <p>Jewellery Marketplace & Escrow Ledger</p>
+          <p>Jewellery Marketplace & Protected Ledger</p>
         </div>
 
         <div className="auth-tab-switchers">

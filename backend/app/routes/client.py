@@ -164,6 +164,32 @@ async def get_custom_requests(current_user: dict = Depends(require_client)):
         })
     return results
 
+@router.delete("/custom-requests/{request_id}")
+async def cancel_custom_request(request_id: str, current_user: dict = Depends(require_client)):
+    """Cancel/withdraw a pending custom design request."""
+    requests_coll = get_collection("custom_requests")
+    
+    try:
+        req_oid = ObjectId(request_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request ID format")
+        
+    req = await requests_coll.find_one({"_id": req_oid})
+    if not req:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
+        
+    if str(req["client_id"]) != str(current_user["_id"]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this request")
+        
+    if req["status"] != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Only pending requests can be cancelled"
+        )
+        
+    await requests_coll.delete_one({"_id": req_oid})
+    return {"message": "Custom request withdrawn successfully"}
+
 @router.get("/quotations")
 async def get_quotations(current_user: dict = Depends(require_client)):
     """Fetch all design/price quotations received by the logged-in client."""
@@ -274,6 +300,11 @@ async def pay_final_payment(order_id: str, payload: PaymentCreate, current_user:
 async def complete_order(order_id: str, current_user: dict = Depends(require_client)):
     """Client confirms that the order has been delivered and marks it as Completed."""
     return await OrderService.update_order_status(order_id, "Completed", current_user)
+
+@router.put("/orders/{order_id}/cancel")
+async def cancel_order(order_id: str, current_user: dict = Depends(require_client)):
+    """Client cancels the booking within 24 hours of creation, refunding 50% of the advance if paid."""
+    return await OrderService.cancel_order_by_client(order_id, str(current_user["_id"]))
 
 @router.get("/payments")
 async def get_payments(current_user: dict = Depends(require_client)):

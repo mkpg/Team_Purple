@@ -17,8 +17,157 @@ const itemVariants = {
   visible: { y: 0, opacity: 1 }
 };
 
+function CatalogProductCard({ product, handleDeleteProduct, isVerified, formatCurrency }) {
+  const { t, language, API_BASE_URL } = useContext(CraftShieldContext);
+
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/uploads')) {
+      return `${API_BASE_URL}${url}`;
+    }
+    return url;
+  };
+
+  const images = [product.image_url, ...(product.image_urls || [])].filter(Boolean).map(getImageUrl);
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  const nextImage = (e) => {
+    e.stopPropagation();
+    setCurrentIdx((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = (e) => {
+    e.stopPropagation();
+    setCurrentIdx((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const getDaysTranslation = () => {
+    if (language === 'ta') return 'நாட்கள்';
+    if (language === 'te') return 'రోజులు';
+    if (language === 'kn') return 'ದಿನಗಳು';
+    if (language === 'ml') return 'ದിവസങ്ങൾ';
+    return 'days';
+  };
+
+  return (
+    <div className="card product-card">
+      <div className="product-image-wrapper" style={{ position: 'relative', overflow: 'hidden' }}>
+        <img src={images[currentIdx]} alt={product.name} className="product-image" style={{ width: '100%', height: '220px', objectFit: 'cover' }} />
+        <div className="product-category-badge label-sm">{t(product.category)}</div>
+        
+        {images.length > 1 && (
+          <>
+            <button 
+              type="button"
+              onClick={prevImage}
+              style={{
+                position: 'absolute',
+                left: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                zIndex: 10
+              }}
+            >
+              ‹
+            </button>
+            <button 
+              type="button"
+              onClick={nextImage}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                zIndex: 10
+              }}
+            >
+              ›
+            </button>
+            <div 
+              style={{
+                position: 'absolute',
+                bottom: '8px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                fontSize: '10px',
+                zIndex: 10
+              }}
+            >
+              {currentIdx + 1} / {images.length}
+            </div>
+          </>
+        )}
+      </div>
+      <div className="card-content">
+        <h4 className="headline-sm">{t(product.name)}</h4>
+        <p className="body-sm text-muted line-clamp">{t(product.description)}</p>
+        <div className="product-specifications">
+          <span>{t('material')}: <strong>{t(product.material)}</strong></span>
+          <span>{t('delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
+        </div>
+        <div className="product-card-footer border-t pt-4 mt-4">
+          <span className="display-sm font-bold text-secondary">{formatCurrency(product.price)}</span>
+          <button 
+            className="btn btn-logout btn-sm"
+            onClick={() => handleDeleteProduct(product.id)}
+            disabled={!isVerified}
+            style={{ padding: '6px 10px', fontSize: '11px' }}
+          >
+            <Trash size={12} /> {t('delete')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReferenceImageSection({ url, getImageUrl }) {
+  const [error, setError] = useState(false);
+  if (error || !url) return null;
+  return (
+    <div className="reference-image-preview mt-4">
+      <span className="label-sm text-muted block mb-1">Client Reference Design:</span>
+      <img 
+        src={getImageUrl(url)} 
+        alt="Client Design Reference" 
+        onError={() => setError(true)}
+        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--color-outline)' }} 
+      />
+    </div>
+  );
+}
+
 export default function ArtisanDashboard() {
   const {
+    API_BASE_URL,
     user,
     artisanStats,
     artisanProfile,
@@ -32,8 +181,54 @@ export default function ArtisanDashboard() {
     acceptCustomRequest,
     rejectCustomRequest,
     createQuotation,
-    updateOrderStatus
+    updateOrderStatus,
+    uploadImages,
+    t,
+    language
   } = useContext(CraftShieldContext);
+
+  const getImageUrl = (url) => {
+    if (!url) return '';
+    if (url.startsWith('/uploads')) {
+      return `${API_BASE_URL}${url}`;
+    }
+    return url;
+  };
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgressMessage, setUploadProgressMessage] = useState('');
+
+  const handleProductFilesChange = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    setUploadProgressMessage(`Uploading ${files.length} images...`);
+    try {
+      const urls = await uploadImages(files);
+      if (urls && urls.length > 0) {
+        setProductForm(prev => {
+          const primary = urls[0];
+          const secondary = urls.slice(1);
+          const currentUrls = prev.image_urls
+            ? prev.image_urls.split(',').map(u => u.trim()).filter(Boolean)
+            : [];
+          const updatedUrls = [...currentUrls, ...secondary];
+          return {
+            ...prev,
+            image_url: primary,
+            image_urls: updatedUrls.join(', ')
+          };
+        });
+        setUploadProgressMessage(`Uploaded ${files.length} images successfully!`);
+        toast.success(`Uploaded ${files.length} images.`);
+      }
+    } catch (err) {
+      toast.error(err.message || 'Image upload failed');
+      setUploadProgressMessage('Image upload failed.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const [activeTab, setActiveTab] = useState('requests'); // requests, pipeline, catalog, profile
 
@@ -56,6 +251,7 @@ export default function ArtisanDashboard() {
     price: '',
     material: '',
     image_url: 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80',
+    image_urls: '',
     estimated_delivery_days: ''
   });
 
@@ -152,17 +348,23 @@ export default function ArtisanDashboard() {
       return;
     }
 
-    const { name, description, category, price, material, estimated_delivery_days } = productForm;
+    const { name, description, category, price, material, estimated_delivery_days, image_url, image_urls } = productForm;
     if (!name || !description || !category || !price || !material || !estimated_delivery_days) {
       toast.error('Please fill in all product details');
       return;
     }
 
+    // Split additional images
+    const extraImages = image_urls
+      ? image_urls.split(',').map(url => url.trim()).filter(url => url.length > 0)
+      : [];
+
     try {
       await createProduct({
         ...productForm,
         price: parseFloat(price),
-        estimated_delivery_days: parseInt(estimated_delivery_days)
+        estimated_delivery_days: parseInt(estimated_delivery_days),
+        image_urls: extraImages
       });
       toast.success('Product uploaded successfully!');
       setIsProductModalOpen(false);
@@ -173,6 +375,7 @@ export default function ArtisanDashboard() {
         price: '',
         material: '',
         image_url: 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80',
+        image_urls: '',
         estimated_delivery_days: ''
       });
     } catch (err) {
@@ -356,6 +559,7 @@ export default function ArtisanDashboard() {
                         <span className="label-sm text-muted">Client Details:</span>
                         <p className="body-md mt-1">{req.description}</p>
                       </div>
+                      <ReferenceImageSection url={req.reference_image_url} getImageUrl={getImageUrl} />
 
                       <div className="request-actions-bar border-t pt-4 mt-4">
                         {req.status === 'pending' && (
@@ -437,20 +641,20 @@ export default function ArtisanDashboard() {
 
                       <div className="pipeline-progress-section mt-6">
                         <div className="tracker-status-label">
-                          <span>Current Escrow State: <strong className="text-secondary">{order.status}</strong></span>
+                          <span>Current Order State: <strong className="text-secondary">{order.status}</strong></span>
                         </div>
                         
                         {/* Rules description */}
                         <div className="status-timeline-helper mt-4 p-4 rounded-lg bg-gray-50 border">
                           <div className="flex align-center gap-2 mb-2">
                             <Info size={16} className="text-tertiary" />
-                            <span className="label-sm">Escrow Stage Verification Guidance:</span>
+                            <span className="label-sm">Order Stage Verification Guidance:</span>
                           </div>
                           <ul className="body-sm text-muted list-disc ml-4">
                             <li><strong>Advance Payment Pending:</strong> Wait for client deposit. Do not begin production.</li>
-                            <li><strong>Advance Payment Secured:</strong> Deposit secured in escrow! Begin <strong>Design</strong>, <strong>Casting</strong> or <strong>Production</strong>.</li>
+                            <li><strong>Advance Payment Secured:</strong> Deposit secured securely! Begin <strong>Design</strong>, <strong>Casting</strong> or <strong>Production</strong>.</li>
                             <li><strong>Ready for Delivery:</strong> Work complete. Settle final client payment to unlock delivery state.</li>
-                            <li><strong>Final Payment Pending:</strong> Client has funded escrow! You are authorized to dispatch / ship the item.</li>
+                            <li><strong>Final Payment Pending:</strong> Client has funded order securely! You are authorized to dispatch / ship the item.</li>
                             <li><strong>Delivered:</strong> Shipped. Awaiting client receipt confirmation.</li>
                             <li><strong>Completed:</strong> Ledger settlement complete. Funds released to your account.</li>
                           </ul>
@@ -524,7 +728,7 @@ export default function ArtisanDashboard() {
                           )}
 
                           {order.status === 'Completed' && (
-                            <span className="body-sm text-green font-semibold">Escrow Released. Settle complete.</span>
+                            <span className="body-sm text-green font-semibold">Funds Released. Settle complete.</span>
                           )}
                         </div>
                       </div>
@@ -543,37 +747,25 @@ export default function ArtisanDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="catalog-panel"
             >
-              <h3 className="headline-md mb-4">Showroom Jewelry Catalog</h3>
+              <h3 className="headline-md mb-4">{language === 'ta' ? 'காட்சி அறை நகைகளின் பட்டியல்' : language === 'te' ? 'షోరూమ్ జ్యువెలరీ కేటలాగ్' : language === 'kn' ? 'ಶೋರೂಮ್ ಒಡವೆಗಳ ಕ್ಯಾಟಲಾಗ್' : language === 'ml' ? 'ഷോറൂം ജ്വല്ലറി കാറ്റലോഗ്' : 'Showroom Jewelry Catalog'}</h3>
               {artisanProducts.length === 0 ? (
-                <div className="empty-state">No products registered. Click "Add Product" to expand your catalog.</div>
+                <div className="empty-state">
+                  {language === 'ta' ? 'தயாரிப்புகள் எதுவும் பதிவு செய்யப்படவில்லை. உங்கள் பட்டியலை விரிவாக்க "தயாரிப்பு சேர்க்க" என்பதை கிளிக் செய்யவும்.' :
+                   language === 'te' ? 'ఉత్పత్తులు ఏవీ నమోదు కాలేదు. మీ కేటలాగ్‌ను విస్తరించడానికి "ఉత్పత్తిని జోడించు" క్లిಕ್ చేయండి.' :
+                   language === 'kn' ? 'ಯಾವುದೇ ಉತ್ಪನ್ನಗಳು ನೊಂದಾಯಿಸಲ್ಪಟ್ಟಿಲ್ಲ. ನಿಮ್ಮ ಕ್ಯಾಟಲಾಗ್ ವಿಸ್ತರಿಸಲು "ಉತ್ಪನ್ನ ಸೇರಿಸಿ" ಕ್ಲಿಕ್ ಮಾಡಿ.' :
+                   language === 'ml' ? 'ഉൽപ്പന്നങ്ങളൊന്നും രജിസ്റ്റർ ചെയ്തിട്ടില്ല. നിങ്ങളുടെ കാറ്റലോഗ് വിപുലീകരിക്കാൻ "ഉൽപ്പന്നം ചേർക്കുക" ക്ലിക്ക് ചെയ്യുക.' :
+                   'No products registered. Click "Add Product" to expand your catalog.'}
+                </div>
               ) : (
                 <div className="products-grid">
                   {artisanProducts.map(product => (
-                    <div key={product.id} className="card product-card">
-                      <div className="product-image-wrapper">
-                        <img src={product.image_url} alt={product.name} className="product-image" />
-                        <div className="product-category-badge label-sm">{product.category}</div>
-                      </div>
-                      <div className="card-content">
-                        <h4 className="headline-sm">{product.name}</h4>
-                        <p className="body-sm text-muted line-clamp">{product.description}</p>
-                        <div className="product-specifications">
-                          <span>Material: <strong>{product.material}</strong></span>
-                          <span>Delivery: <strong>{product.estimated_delivery_days} days</strong></span>
-                        </div>
-                        <div className="product-card-footer border-t pt-4 mt-4">
-                          <span className="display-sm font-bold text-secondary">{formatCurrency(product.price)}</span>
-                          <button 
-                            className="btn btn-logout btn-sm"
-                            onClick={() => handleDeleteProduct(product.id)}
-                            disabled={!isVerified}
-                            style={{ padding: '6px 10px', fontSize: '11px' }}
-                          >
-                            <Trash size={12} /> Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <CatalogProductCard 
+                      key={product.id}
+                      product={product}
+                      handleDeleteProduct={handleDeleteProduct}
+                      isVerified={isVerified}
+                      formatCurrency={formatCurrency}
+                    />
                   ))}
                 </div>
               )}
@@ -667,7 +859,7 @@ export default function ArtisanDashboard() {
                 />
               </div>
               <div className="input-group">
-                <label className="input-label">Advance Escrow Deposit Required (INR)</label>
+                <label className="input-label">Advance Safe Deposit Required (INR)</label>
                 <input 
                   type="number" 
                   className="input-field" 
@@ -777,12 +969,37 @@ export default function ArtisanDashboard() {
           <div className="input-group">
             <label className="input-label">Product Catalog Image URL</label>
             <input 
-              type="url" 
+              type="text" 
               className="input-field" 
+              placeholder="Primary image URL, or upload below"
               value={productForm.image_url}
               onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}
               required 
             />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">{t('additionalImages')}</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder={t('additionalImagesPlaceholder')}
+              value={productForm.image_urls || ''}
+              onChange={(e) => setProductForm({ ...productForm, image_urls: e.target.value })}
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Or Upload Jewelry Images (Multiple allowed)</label>
+            <input 
+              type="file" 
+              className="input-field" 
+              accept="image/*"
+              multiple 
+              onChange={handleProductFilesChange}
+            />
+            {isUploading && <span className="label-sm text-secondary animate-pulse" style={{ display: 'block', marginTop: '4px' }}>Uploading files...</span>}
+            {uploadProgressMessage && <span className="label-sm text-teal" style={{ display: 'block', marginTop: '4px' }}>{uploadProgressMessage}</span>}
           </div>
 
           <div className="input-group">

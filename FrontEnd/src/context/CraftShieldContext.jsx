@@ -1,13 +1,27 @@
 import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
+import { translations } from '../utils/translations';
 
 export const CraftShieldContext = createContext();
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export const CraftShieldProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('token') || null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  
+  // Localization state
+  const [language, setLangState] = useState(() => localStorage.getItem('language') || 'en');
+
+  const setLanguage = (lang) => {
+    localStorage.setItem('language', lang);
+    setLangState(lang);
+  };
+
+  const t = useCallback((key) => {
+    const langDict = translations[language] || translations['en'];
+    return langDict[key] || translations['en'][key] || key;
+  }, [language]);
 
   // Client states
   const [clientStats, setClientStats] = useState(null);
@@ -303,6 +317,14 @@ export const CraftShieldProvider = ({ children }) => {
     return res;
   };
 
+  const cancelOrder = async (orderId) => {
+    const res = await apiFetch(`/api/client/orders/${orderId}/cancel`, {
+      method: 'PUT'
+    });
+    await refreshData();
+    return res;
+  };
+
   // Artisan actions
   const updateArtisanProfile = async (profileData) => {
     const res = await apiFetch('/api/artisan/profile', {
@@ -337,6 +359,30 @@ export const CraftShieldProvider = ({ children }) => {
     });
     await refreshData();
     return res;
+  };
+
+  const uploadImages = async (filesList) => {
+    const url = `${API_BASE_URL}/api/upload`;
+    const formData = new FormData();
+    for (let i = 0; i < filesList.length; i++) {
+      formData.append('files', filesList[i]);
+    }
+    const storedToken = localStorage.getItem('token');
+    const headers = {};
+    if (storedToken) {
+      headers['Authorization'] = `Bearer ${storedToken}`;
+    }
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({ detail: 'Upload failed' }));
+      throw new Error(errData.detail || 'Upload failed');
+    }
+    const data = await response.json();
+    return data.urls;
   };
 
   const acceptCustomRequest = async (requestId) => {
@@ -386,6 +432,7 @@ export const CraftShieldProvider = ({ children }) => {
   return (
     <CraftShieldContext.Provider value={{
       // Core state
+      API_BASE_URL,
       token,
       user,
       loading,
@@ -394,6 +441,11 @@ export const CraftShieldProvider = ({ children }) => {
       registerArtisan,
       logout,
       refreshData,
+      
+      // Localization
+      language,
+      setLanguage,
+      t,
 
       // Client state
       clientStats,
@@ -411,6 +463,7 @@ export const CraftShieldProvider = ({ children }) => {
       payAdvance,
       payFinal,
       completeOrder,
+      cancelOrder,
 
       // Artisan state
       artisanStats,
@@ -429,6 +482,7 @@ export const CraftShieldProvider = ({ children }) => {
       rejectCustomRequest,
       createQuotation,
       updateOrderStatus,
+      uploadImages,
 
       // Admin state
       adminStats,
