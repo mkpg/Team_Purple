@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, NavLink } from 'react-router-dom';
 import { LogOut, Gem, Shield, Hammer, User } from 'lucide-react';
 import { CraftShieldContext } from '../context/CraftShieldContext';
 import './Layout.css';
@@ -43,14 +43,30 @@ export default function Layout() {
         </div>
 
         <nav className="nav-menu">
-          <div className="nav-item active">
+          <NavLink 
+            to="/" 
+            end
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            style={{ textDecoration: 'none' }}
+          >
             {getRoleIcon()}
             <span className="label-md">
               {user?.role === 'client' && t('clientPortal')}
               {user?.role === 'artisan' && t('artisanStudio')}
               {user?.role === 'admin' && t('adminPanel')}
             </span>
-          </div>
+          </NavLink>
+
+          <NavLink 
+            to="/profile" 
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            style={{ textDecoration: 'none' }}
+          >
+            <User size={20} />
+            <span className="label-md">
+              {language === 'ta' ? 'சுயவிவரம்' : language === 'te' ? 'ప్రొఫైల్' : language === 'kn' ? 'ಪ್ರೊಫೈಲ್' : language === 'ml' ? 'പ്രൊഫൈൽ' : 'Profile'}
+            </span>
+          </NavLink>
         </nav>
 
         <div className="sidebar-footer">

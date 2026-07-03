@@ -88,6 +88,11 @@ async def seed_database():
                 "password_hash": get_password_hash(art["password"]),
                 "role": "artisan",
                 "is_active": True,
+                "reliability_profile": {
+                    "reliability_score": 100.0,
+                    "score_history": [],
+                    "consecutive_ontime_orders": 0
+                },
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             }

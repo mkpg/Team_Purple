@@ -191,6 +191,32 @@ sequenceDiagram
 
 ---
 
+## 🔗 Blockchain Design Provenance (VeChain Testnet)
+
+To prevent intellectual property theft and unauthorized design replication, CraftShield integrates an immutable, timestamped registration ledger on the **VeChain (VeChainThor) Testnet**.
+
+### 🛠️ Key Cryptographic Services & Endpoints
+1. **Design Hashing & Bundles (`backend/app/services/blockchain.py`)**:
+   - Computes image **Perceptual Hash (pHash)** using `imagehash.phash` to identify visually similar or duplicate catalog photos.
+   - Packages design files, metadata (Title, Description, Artisan ID, and registration timestamp) into an immutable JSON bundle.
+   - Computes a secure SHA-256 hash of this bundle representing the design's unique cryptographic identity.
+2. **On-Chain Anchor Transaction (`backend/app/services/blockchain.py`)**:
+   - Executes smart contract transactions deploying the design hash onto the VeChain testnet blockchain using delegated transaction fee billing.
+   - Returns transaction metadata: Transaction ID (TxID), Block number, registration timestamp, and artisan wallet addresses.
+3. **Similarity Audit Check (`POST /api/artisan/products/{product_id}/check-design-similarity`)**:
+   - Scans the database comparing image pHash distance. Alerts the artisan if a design shares higher than 85% resemblance (Hamming distance < 10) with existing products.
+4. **Anchoring & Override (`POST /api/artisan/products/{product_id}/register-design`)**:
+   - Allows artisans to proceed with design anchoring. If an override is requested, the system registers the design on-chain but files an automated dispute signal (`design_hash_conflict`) for admin review.
+5. **Auditable Proof retrieval (`GET /api/artisan/products/{product_id}/design-proof`)**:
+   - Fetches and displays proof metadata including explorer links pointing to the live VeChain Testnet blockchain ledger.
+
+### 💻 User Interface Integration & Experience
+- **Artisan Catalog Workspace**: Artisans get an **"Anchor Design Proof"** button triggering an automatic similarity check. If warning matches appear, they are prompted via an override modal dialog. Once registered, a **"Blockchain Verified"** badge links to the live transaction receipt.
+- **Client Marketplace Page**: Renders the **"Blockchain Verified"** badge on matching product showroom cards, allowing buyers to inspect the immutable registration metadata and verify the artisan's authenticity.
+- **Admin Audit Panel**: Catalog audits tab lists all active system products displaying their Blockchain status, showing details and transaction logs for every verified provenance record.
+
+---
+
 ## 🚀 Running the Whole System Locally
 
 ### ⚡ Quick Start (Windows Batch Script)

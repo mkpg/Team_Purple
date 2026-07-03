@@ -43,6 +43,13 @@ class AuthService:
             "password_hash": get_password_hash(client_data.password),
             "role": "client",
             "is_active": True,
+            "trust_profile": {
+                "trust_score": 100.0,
+                "late_payments": 0,
+                "cancelled_orders": 0,
+                "completed_payments": 0,
+                "score_history": []
+            },
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
@@ -65,6 +72,11 @@ class AuthService:
             "password_hash": get_password_hash(artisan_data.password),
             "role": "artisan",
             "is_active": True,
+            "reliability_profile": {
+                "reliability_score": 100.0,
+                "score_history": [],
+                "consecutive_ontime_orders": 0
+            },
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }

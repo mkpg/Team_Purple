@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     PORT: int = 8000
     DEBUG: bool = True
 
+    # VeChain Settings (Testnet Only)
+    VECHAIN_NODE_URL: str = "https://testnet.vechain.org"
+    VECHAIN_CONTRACT_ADDRESS: str = "0x8849E48227b0Dbb6951Ff7b49466c1e5FF4bCF9a"
+    VECHAIN_SPONSOR_KEY: str = "0x0000000000000000000000000000000000000000000000000000000000000001"
+
     # Find the env file path relative to this file
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),
