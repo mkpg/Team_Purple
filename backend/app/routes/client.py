@@ -12,6 +12,7 @@ from app.schemas.order import OrderOut
 from app.schemas.payment import PaymentCreate, PaymentOut
 from app.services.order_service import OrderService
 from app.services.payment_service import PaymentService
+from app.services.reliability_score import get_reliability_badge
 
 router = APIRouter(prefix="/api/client", tags=["Client Portal"])
 
@@ -19,6 +20,10 @@ router = APIRouter(prefix="/api/client", tags=["Client Portal"])
 async def get_client_dashboard(current_user: dict = Depends(require_client)):
     """Fetch dashboard statistics and summary metrics for the client."""
     client_oid = current_user["_id"]
+    
+    db = get_collection("users").database
+    from app.services.reliability_score import check_delayed_orders
+    await check_delayed_orders(db)
     
     requests_coll = get_collection("custom_requests")
     orders_coll = get_collection("orders")
@@ -71,6 +76,9 @@ async def get_artisans(current_user: dict = Depends(require_client)):
     for profile in verified_profiles:
         user = await users_coll.find_one({"_id": profile["user_id"]})
         if user:
+            rel_profile = user.get("reliability_profile") or {}
+            rel_score = rel_profile.get("reliability_score", 100.0)
+            badge = get_reliability_badge(rel_score)
             results.append({
                 "artisan_id": str(user["_id"]),
                 "full_name": user["full_name"],
@@ -81,7 +89,8 @@ async def get_artisans(current_user: dict = Depends(require_client)):
                 "jewellery_specialization": profile["jewellery_specialization"],
                 "location": profile["location"],
                 "profile_description": profile["profile_description"],
-                "verified_at": profile.get("verified_at")
+                "verified_at": profile.get("verified_at"),
+                "reliability_badge": badge
             })
     return results
 
@@ -94,11 +103,19 @@ async def get_products(current_user: dict = Depends(require_client)):
     products = await products_coll.find({"is_active": True}).to_list(length=100)
     
     results = []
+    users_coll = get_collection("users")
     for prod in products:
         profile = await profiles_coll.find_one({"user_id": ObjectId(prod["artisan_id"])})
+        artisan_user = await users_coll.find_one({"_id": ObjectId(prod["artisan_id"])})
+        badge = "New / Building History"
+        if artisan_user:
+            rel_profile = artisan_user.get("reliability_profile") or {}
+            rel_score = rel_profile.get("reliability_score", 100.0)
+            badge = get_reliability_badge(rel_score)
         results.append({
             **serialize_doc(prod),
-            "artisan_business_name": profile["business_name"] if profile else "CraftShield Artisan"
+            "artisan_business_name": profile["business_name"] if profile else "CraftShield Artisan",
+            "artisan_reliability_badge": badge
         })
     return results
 
@@ -250,9 +267,32 @@ async def get_orders(current_user: dict = Depends(require_client)):
     results = []
     for order in orders:
         art_profile = await profiles_coll.find_one({"user_id": order["artisan_id"]})
+        
+        # Calculate delay details
+        target_date = order.get("extended_completion_date") or order.get("expected_completion_date")
+        is_delayed = False
+        delay_days = 0
+        eligible_for_refund = False
+        
+        if target_date:
+            from datetime import date
+            if isinstance(target_date, date) and not isinstance(target_date, datetime):
+                target_date = datetime.combine(target_date, datetime.min.time())
+            now = datetime.utcnow()
+            if now > target_date:
+                is_delayed = True
+                delay_days = (now - target_date).days
+                if delay_days >= 4 and not order.get("extension_requested"):
+                    eligible_for_refund = True
+                    
         results.append({
             **serialize_doc(order),
-            "artisan_business_name": art_profile["business_name"] if art_profile else "Unknown Artisan"
+            "artisan_business_name": art_profile["business_name"] if art_profile else "Unknown Artisan",
+            "delay_status": {
+                "is_delayed": is_delayed,
+                "delay_days": delay_days,
+                "eligible_for_refund": eligible_for_refund
+            }
         })
     return results
 
@@ -278,10 +318,42 @@ async def get_order_details(order_id: str, current_user: dict = Depends(require_
     art_profile = await profiles_coll.find_one({"user_id": order["artisan_id"]})
     payments = await payments_coll.find({"order_id": order_oid}).to_list(length=10)
     
+    # Calculate delay details
+    target_date = order.get("extended_completion_date") or order.get("expected_completion_date")
+    is_delayed = False
+    delay_days = 0
+    eligible_for_refund = False
+    
+    if target_date:
+        from datetime import date
+        if isinstance(target_date, date) and not isinstance(target_date, datetime):
+            target_date = datetime.combine(target_date, datetime.min.time())
+        now = datetime.utcnow()
+        if now > target_date:
+            is_delayed = True
+            delay_days = (now - target_date).days
+            if delay_days >= 4 and not order.get("extension_requested"):
+                eligible_for_refund = True
+                
+    # Get artisan reliability badge
+    users_coll = get_collection("users")
+    artisan_user = await users_coll.find_one({"_id": ObjectId(order["artisan_id"])})
+    artisan_badge = "New / Building History"
+    if artisan_user:
+        rel_profile = artisan_user.get("reliability_profile") or {}
+        rel_score = rel_profile.get("reliability_score", 100.0)
+        artisan_badge = get_reliability_badge(rel_score)
+        
     return {
         "order": {
             **serialize_doc(order),
-            "artisan_business_name": art_profile["business_name"] if art_profile else "Unknown Artisan"
+            "artisan_business_name": art_profile["business_name"] if art_profile else "Unknown Artisan",
+            "artisan_reliability_badge": artisan_badge,
+            "delay_status": {
+                "is_delayed": is_delayed,
+                "delay_days": delay_days,
+                "eligible_for_refund": eligible_for_refund
+            }
         },
         "payments": serialize_list(payments)
     }
@@ -305,6 +377,11 @@ async def complete_order(order_id: str, current_user: dict = Depends(require_cli
 async def cancel_order(order_id: str, current_user: dict = Depends(require_client)):
     """Client cancels the booking within 24 hours of creation, refunding 50% of the advance if paid."""
     return await OrderService.cancel_order_by_client(order_id, str(current_user["_id"]))
+
+@router.put("/orders/{order_id}/cancel-delay")
+async def cancel_order_due_to_artisan_delay(order_id: str, current_user: dict = Depends(require_client)):
+    """Client cancels the order due to artisan's production delay, invoking full refund."""
+    return await OrderService.cancel_order_by_client_artisan_delay(order_id, str(current_user["_id"]))
 
 @router.get("/payments")
 async def get_payments(current_user: dict = Depends(require_client)):

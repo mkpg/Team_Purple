@@ -325,6 +325,14 @@ export const CraftShieldProvider = ({ children }) => {
     return res;
   };
 
+  const cancelOrderDueToDelay = async (orderId) => {
+    const res = await apiFetch(`/api/client/orders/${orderId}/cancel-delay`, {
+      method: 'PUT'
+    });
+    await refreshData();
+    return res;
+  };
+
   // Artisan actions
   const updateArtisanProfile = async (profileData) => {
     const res = await apiFetch('/api/artisan/profile', {
@@ -419,6 +427,37 @@ export const CraftShieldProvider = ({ children }) => {
     return res;
   };
 
+  const requestExtension = async (orderId, extendedCompletionDate, reason) => {
+    const res = await apiFetch(`/api/artisan/orders/${orderId}/request-extension`, {
+      method: 'POST',
+      body: JSON.stringify({
+        extended_completion_date: extendedCompletionDate,
+        reason: reason
+      })
+    });
+    await refreshData();
+    return res;
+  };
+
+  const checkDesignSimilarity = async (productId) => {
+    return await apiFetch(`/api/artisan/products/${productId}/check-design-similarity`, {
+      method: 'POST'
+    });
+  };
+
+  const registerDesign = async (productId, overrideSimilarityWarning = false) => {
+    const res = await apiFetch(`/api/artisan/products/${productId}/register-design`, {
+      method: 'POST',
+      body: JSON.stringify({ override_similarity_warning: overrideSimilarityWarning })
+    });
+    await refreshData();
+    return res;
+  };
+
+  const getDesignProof = async (productId) => {
+    return await apiFetch(`/api/artisan/products/${productId}/design-proof`);
+  };
+
   // Admin actions
   const verifyArtisan = async (artisanId, verifyStatus) => {
     const res = await apiFetch(`/api/admin/artisans/${artisanId}/verify`, {
@@ -428,6 +467,40 @@ export const CraftShieldProvider = ({ children }) => {
     await refreshData();
     return res;
   };
+
+  const adminDeleteProduct = async (productId) => {
+    const res = await apiFetch(`/api/admin/products/${productId}`, {
+      method: 'DELETE'
+    });
+    await refreshData();
+    return res;
+  };
+
+  const adminUpdateProduct = async (productId, productData) => {
+    const res = await apiFetch(`/api/admin/products/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(productData)
+    });
+    await refreshData();
+    return res;
+  };
+
+  const getArtisanReliability = async (artisanId) => {
+    return await apiFetch(`/api/admin/artisans/${artisanId}/reliability`);
+  };
+
+  const adjustArtisanReliability = async (artisanId, adjustment, reason) => {
+    const res = await apiFetch(`/api/admin/artisans/${artisanId}/reliability`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        adjustment: parseFloat(adjustment),
+        reason: reason
+      })
+    });
+    await refreshData();
+    return res;
+  };
+
 
   return (
     <CraftShieldContext.Provider value={{
@@ -464,6 +537,7 @@ export const CraftShieldProvider = ({ children }) => {
       payFinal,
       completeOrder,
       cancelOrder,
+      cancelOrderDueToDelay,
 
       // Artisan state
       artisanStats,
@@ -482,7 +556,11 @@ export const CraftShieldProvider = ({ children }) => {
       rejectCustomRequest,
       createQuotation,
       updateOrderStatus,
+      requestExtension,
       uploadImages,
+      checkDesignSimilarity,
+      registerDesign,
+      getDesignProof,
 
       // Admin state
       adminStats,
@@ -494,7 +572,12 @@ export const CraftShieldProvider = ({ children }) => {
       adminDisputes,
 
       // Admin operations
-      verifyArtisan
+      verifyArtisan,
+      adminDeleteProduct,
+      adminUpdateProduct,
+      getArtisanReliability,
+      adjustArtisanReliability
+
     }}>
       {children}
     </CraftShieldContext.Provider>

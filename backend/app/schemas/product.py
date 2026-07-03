@@ -35,3 +35,23 @@ class ProductOut(ProductBase):
 
     class Config:
         from_attributes = True
+
+class DesignRegisterPayload(BaseModel):
+    override_similarity_warning: bool = False
+
+class SimilarityMatch(BaseModel):
+    product_id: str
+    name: str
+    artisan_id: str
+    artisan_business_name: str
+    distance: int
+    image_url: str
+
+class DesignProof(BaseModel):
+    design_hash: str
+    phash: str
+    tx_id: str
+    block_number: int
+    registered_at: datetime
+    artisan_address: str
+    explorer_url: str

@@ -8,6 +8,7 @@ import ArtisanDashboard from './pages/ArtisanDashboard';
 import ClientDashboard from './pages/ClientDashboard';
 import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
+import Profile from './pages/Profile';
 import './App.css';
 
 function MainApp() {
@@ -35,18 +36,21 @@ function MainApp() {
         {user.role === 'client' && (
           <>
             <Route index element={<ClientDashboard />} />
+            <Route path="profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}
         {user.role === 'artisan' && (
           <>
             <Route index element={<ArtisanDashboard />} />
+            <Route path="profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}
         {user.role === 'admin' && (
           <>
             <Route index element={<AdminPanel />} />
+            <Route path="profile" element={<Profile />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         )}

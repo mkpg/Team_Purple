@@ -40,5 +40,20 @@ async def get_me(current_user: dict = Depends(get_current_user)):
             user_data["verification_status"] = profile.get("verification_status", "pending")
         else:
             user_data["verification_status"] = "pending"
+    elif current_user.get("role") == "client":
+        if "trust_profile" not in user_data or not user_data.get("trust_profile"):
+            default_trust = {
+                "trust_score": 100.0,
+                "late_payments": 0,
+                "cancelled_orders": 0,
+                "completed_payments": 0,
+                "score_history": []
+            }
+            users_coll = get_collection("users")
+            await users_coll.update_one(
+                {"_id": current_user["_id"]},
+                {"$set": {"trust_profile": default_trust}}
+            )
+            user_data["trust_profile"] = default_trust
             
     return user_data

@@ -68,7 +68,10 @@ export const translations = {
     "Band": "Band",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "Exquisite 18k rose gold ring featuring handcrafted filigree...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "An elegant 18k yellow gold pendant hosting a pear-shaped...",
-    "Individually patterned band using traditional Japanese layering of...": "Individually patterned band using traditional Japanese layering of..."
+    "Individually patterned band using traditional Japanese layering of...": "Individually patterned band using traditional Japanese layering of...",
+    blockchainVerified: "Blockchain Verified",
+    verifyDesign: "Verify Design on Blockchain",
+    blockchainExplanation: "This badge represents an immutable proof of registration timestamp on the VeChain blockchain, establishing when the design was first uploaded. Note: This is evidence of existence at a point in time, not a legally binding trademark or copyright guarantee."
   },
   ta: {
     appName: "கிராஃப்ட்ஷீல்ட்",
@@ -139,7 +142,10 @@ export const translations = {
     "Band": "வளையம்",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "கைவினை ஃபிலிகிரி வேலைப்பாடுகளுடன் கூடிய நேர்த்தியான 18k ரோஸ் கோல்ட் மோதிரம்...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "பேரிக்காய் வடிவ ரத்தினம் கொண்ட நேர்த்தியான 18k மஞ்சள் தங்கம் பதக்கம்...",
-    "Individually patterned band using traditional Japanese layering of...": "பாரம்பரிய ஜப்பானிய உலோக அடுக்கு முறையைப் பயன்படுத்தி வடிவமைக்கப்பட்ட மோதிரம்..."
+    "Individually patterned band using traditional Japanese layering of...": "பாரம்பரிய ஜப்பானிய உலோக அடுக்கு முறையைப் பயன்படுத்தி வடிவமைக்கப்பட்ட மோதிரம்...",
+    blockchainVerified: "பிளாக்செயின் மூலம் சரிபார்க்கப்பட்டது",
+    verifyDesign: "வடிவமைப்பை பிளாக்செயினில் சரிபார்க்கவும்",
+    blockchainExplanation: "இந்த பேட்ஜ் பிளாக்செயினில் பதிவுசெய்யப்பட்ட நேர முத்திரையின் மாறாத சான்றாகும். இது வடிவமைப்பு முதலில் எப்போது பதிவேற்றப்பட்டது என்பதை நிரூபிக்கிறது. குறிப்பு: இது ஒரு குறிப்பிட்ட நேரத்தில் வடிவமைப்பு இருந்ததற்கான சான்று மட்டுமே, சட்டப்பூர்வ காப்புரிமை அல்ல."
   },
   te: {
     appName: "క్రాఫ్ట్‌షీల్డ్",
@@ -210,7 +216,10 @@ export const translations = {
     "Band": "బ్యాండ్",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "హస్తకళా ఫిలిగ్రీతో కూడిన సున్నితమైన 18k రోజ్ గోల్డ్ ఉంగరం...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "పియర్ ఆకారపు రత్నంతో కూడిన సొగసైన 18k పసుపు బంగారు లాకెట్...",
-    "Individually patterned band using traditional Japanese layering of...": "సాంప్రదాయ జపనీస్ మెటల్ లేయరింగ్ ఉపయోగించి తయారు చేసిన ఉంగరం..."
+    "Individually patterned band using traditional Japanese layering of...": "సాంప్రదాయ జపనీస్ మెటల్ లేయరింగ్ ఉపయోగించి తయారు చేసిన ఉంగరం...",
+    blockchainVerified: "బ్లాక్‌చైన్ ధృవీకరించబడింది",
+    verifyDesign: "డిజైన్ బ్లాక్‌చైన్‌లో ధృవీకరించు",
+    blockchainExplanation: "ఈ బ్యాడ్జ్ బ్లాక్‌చైన్‌లో నమోదు చేయబడిన సమయ ముద్ర యొక్క మార్పులేని సాక్ష్యం. ఇది డిజైన్ మొదట ఎప్పుడు అప్‌లోడ్ చేయబడిందో నిరూపిస్తుంది. గమనిక: ఇది కేవలం ఒక నిర్దిష్ట సమయంలో ఉనికికి సంబంధించిన రుజువు మాత్రమే, చట్టపరమైన కాపీరైట్ కాదు."
   },
   kn: {
     appName: "ಕ್ರಾಫ್ಟ್‌ಶೀಲ್ಡ್",
@@ -281,7 +290,10 @@ export const translations = {
     "Band": "ಬ್ಯಾಂಡ್",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "ಹಸ್ತನಿರ್ಮಿತ ಫಿಲಿಗ್ರೀ ಹೊಂದಿರುವ ಅತ್ಯುತ್ತಮ 18k ರೋಸ್ ಗೋಲ್ಡ್ ಉಂಗುರ...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "ಪಿಯರ್ ಆಕಾರದ ರತ್ನವನ್ನು ಹೊಂದಿರುವ ಸೊಗಸಾದ 18k ಹಳದಿ ಚಿನ್ನದ ಪದಕ...",
-    "Individually patterned band using traditional Japanese layering of...": "ಸಾಂಪ್ರದಾಯಿಕ ಜಪಾನೀಸ್ ಲೋಹದ ಪದರಗಳನ್ನು ಬಳಸಿ ವಿನ್ಯಾಸಗೊಳಿಸಿದ ಉಂಗುರ..."
+    "Individually patterned band using traditional Japanese layering of...": "ಸಾಂಪ್ರದಾಯಿಕ ಜಪಾನೀಸ್ ಲೋಹದ ಪದರಗಳನ್ನು ಬಳಸಿ ವಿನ್ಯಾಸಗೊಳಿಸಿದ ಉಂಗುರ...",
+    blockchainVerified: "ಬ್ಲಾಕ್‌ಚೈನ್ ದೃಢೀಕರಿಸಲಾಗಿದೆ",
+    verifyDesign: "ವಿನ್ಯಾಸವನ್ನು ಬ್ಲಾಕ್‌ಚೈನ್‌ನಲ್ಲಿ ದೃಢೀಕರಿಸಿ",
+    blockchainExplanation: "ಈ ಬ್ಯಾಡ್ಜ್ ಬ್ಲಾಕ್‌ಚೈನ್‌ನಲ್ಲಿ ನೋಂದಾಯಿಸಲಾದ ಸಮಯದ ಮುದ್ರೆಯ ಬದಲಾಗದ ಸಾಕ್ಷಿಯಾಗಿದೆ. ಇದು ವಿನ್ಯಾಸವು ಮೊದಲು ಯಾವಾಗ ಅಪ್‌ಲೋഡ് ಮಾಡಲ್ಪಟ್ಟಿದೆ ಎಂಬುದನ್ನು ಸಾಬೀತುಪಡಿಸುತ್ತದೆ. ಗಮನಿಸಿ: ಇದು ಕೇವല ಒಂದು ನಿರ್ദിಷ್ಟ ಸಮಯದಲ್ಲಿ ಅಸ್ತಿತ್ವದಲ್ಲಿದ್ದ ಪುರಾವೆಯಾಗಿದೆ, ಕಾನೂನುಬದ್ಧ ಹಕ್ಕುಸ್ವಾಮ್ಯವಲ್ಲ."
   },
   ml: {
     appName: "ക്രാഫ്റ്റ്ഷീൽഡ്",
@@ -352,6 +364,9 @@ export const translations = {
     "Band": "ബാൻഡ്",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "ഹാൻഡ്ക്രാഫ്റ്റ് ഫിലിഗ്രി ഉള്ള മികച്ച 18k റോസ് ഗോൾഡ് മോതിരം...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "പിയർ ആകൃതിയിലുള്ള രത്നം പതിച്ച മനോഹരമായ 18k മഞ്ഞ സ്വർണ്ണ ലോക്കറ്റ്...",
-    "Individually patterned band using traditional Japanese layering of...": "പരമ്പരാഗത ജാപ്പനീസ് മെറ്റൽ ലെയറിംഗ് ഉപയോഗിച്ച് നിർമ്മിച്ച മോതിരം..."
+    "Individually patterned band using traditional Japanese layering of...": "പരമ്പരാഗത ജാപ്പനീസ് മെറ്റൽ ലെയറിംഗ് ഉപയോഗിച്ച് നിർമ്മിച്ച മോതിരം...",
+    blockchainVerified: "ബ്ലോക്ക്ചെയിൻ വെരിഫൈഡ്",
+    verifyDesign: "ഡിസൈൻ ബ്ലോക്ക്ചെയിനിൽ വെരിഫൈ ചെയ്യുക",
+    blockchainExplanation: "ഈ ബാഡ്ജ് ബ്ലോക്ക്ചെയിനിൽ രജിസ്റ്റർ ചെയ്ത സമയത്തിന്റെ മാറ്റമില്ലാത്ത തെളിവാണ്. ഇത് ഡിസൈൻ ആദ്യം എപ്പോൾ അപ്‌ലോഡ് ചെയ്തു എന്ന് തെളിയിക്കുന്നു. കുറിപ്പ്: ഇത് ഒരു പ്രത്യേക സമയത്ത് നിലവിലുണ്ടായിരുന്നതിന്റെ തെളിവ് മാത്രമാണ്, നിയമപരമായ പകർപ്പവകാശമല്ല."
   }
 };
