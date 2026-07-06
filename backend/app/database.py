@@ -4,6 +4,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from app.config import settings
 from app.utils.security import get_password_hash
+from app.services.trust_score import get_trust_profile_defaults
+from app.services.reliability_score import get_reliability_profile_defaults
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +28,19 @@ def get_collection(name: str):
 async def seed_database():
     """Seed default database data: admin account, verified artisans, and products."""
     database = get_database()
+    users_coll = database["users"]
+
+    # Backfill trust profiles for existing clients so the score feature works immediately.
+    await users_coll.update_many(
+        {"role": "client", "trust_profile": {"$exists": False}},
+        {"$set": {"trust_profile": get_trust_profile_defaults(), "updated_at": datetime.utcnow()}}
+    )
+    await users_coll.update_many(
+        {"role": "artisan", "reliability_profile": {"$exists": False}},
+        {"$set": {"reliability_profile": get_reliability_profile_defaults(), "updated_at": datetime.utcnow()}}
+    )
     
     # 1. Seed Admin
-    users_coll = database["users"]
     admin_exists = await users_coll.find_one({"role": "admin"})
     if not admin_exists:
         admin_user = {
@@ -88,11 +100,8 @@ async def seed_database():
                 "password_hash": get_password_hash(art["password"]),
                 "role": "artisan",
                 "is_active": True,
-                "reliability_profile": {
-                    "reliability_score": 100.0,
-                    "score_history": [],
-                    "consecutive_ontime_orders": 0
-                },
+                "reliability_profile": get_reliability_profile_defaults(),
+                "trust_profile": get_trust_profile_defaults(),
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             }

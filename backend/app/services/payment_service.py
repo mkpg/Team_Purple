@@ -1,10 +1,9 @@
 from datetime import datetime
 from fastapi import HTTPException, status
 from bson import ObjectId
-from app.database import get_collection
+from app.database import get_collection, get_database
 from app.utils.serializers import serialize_doc
-from app.services.reliability_score import apply_client_trust_event
-
+from app.services.trust_score import apply_trust_event
 
 class PaymentService:
     @staticmethod
@@ -55,14 +54,13 @@ class PaymentService:
             {"_id": order_oid},
             {"$set": {"status": "Advance Payment Secured", "updated_at": datetime.utcnow()}}
         )
-        
-        # Adjust client trust score for successful payment
-        await apply_client_trust_event(
-            db=orders_coll.database,
+
+        await apply_trust_event(
+            db=get_database(),
             client_id=ObjectId(client_id_str),
             event_type="PAYMENT_SUCCESS",
             order_id=order_oid,
-            note="Advance payment successfully secured"
+            note="Advance payment secured successfully."
         )
         
         return serialize_doc(payment_doc)
@@ -116,14 +114,13 @@ class PaymentService:
             {"_id": order_oid},
             {"$set": {"status": "Final Payment Pending", "updated_at": datetime.utcnow()}}
         )
-        
-        # Adjust client trust score for successful payment
-        await apply_client_trust_event(
-            db=orders_coll.database,
+
+        await apply_trust_event(
+            db=get_database(),
             client_id=ObjectId(client_id_str),
             event_type="PAYMENT_SUCCESS",
             order_id=order_oid,
-            note="Final payment successfully completed"
+            note="Final payment secured successfully."
         )
         
         return serialize_doc(payment_doc)

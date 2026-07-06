@@ -1,11 +1,11 @@
 import React, { useContext, useState } from 'react';
-import { Users, IndianRupee, Activity, Check, X, Shield, ShoppingBag, CreditCard, Clipboard, Download, Edit, Trash, Plus } from 'lucide-react';
+import { Users, IndianRupee, Activity, Check, X, Shield, ShoppingBag, CreditCard, Clipboard, Download, Scale } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CraftShieldContext } from '../context/CraftShieldContext';
-import Modal from '../components/Modal';
+import { MarketplaceProductCard } from './ClientDashboard';
+import './ClientDashboard.css';
 import './AdminPanel.css';
-
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -28,135 +28,34 @@ export default function AdminPanel() {
     adminPayments,
     adminDisputes,
     verifyArtisan,
-    getDesignProof,
-    adminDeleteProduct,
-    adminUpdateProduct,
-    getArtisanReliability,
-    adjustArtisanReliability,
-    uploadImages,
-    API_BASE_URL
+    adjustUserScore,
+    fetchUserScoreHistory,
+    lookupAdminProof,
+    deleteProduct,
+    refreshData
   } = useContext(CraftShieldContext);
 
-  const [activeTab, setActiveTab] = useState('verifications'); // verifications, users, catalog, ledgers
-  const [showProof, setShowProof] = useState(false);
-  const [proofData, setProofData] = useState(null);
-  const [loadingProof, setLoadingProof] = useState(false);
-
-  // Reliability Modal State
-  const [isReliabilityModalOpen, setIsReliabilityModalOpen] = useState(false);
-  const [selectedArtisan, setSelectedArtisan] = useState(null);
-  const [reliabilityDetails, setReliabilityDetails] = useState(null);
-  const [loadingReliability, setLoadingReliability] = useState(false);
-  const [adjustForm, setAdjustForm] = useState({
-    score_delta: '',
-    reason: ''
-  });
-
-  // Admin Product Edit modal state
-  const [isEditProductModalOpen, setIsEditProductModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [editProductForm, setEditProductForm] = useState({
-    name: '',
-    description: '',
-    category: '',
-    price: '',
-    material: '',
-    estimated_delivery_days: ''
-  });
-  const [editUploadedImages, setEditUploadedImages] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgressMessage, setUploadProgressMessage] = useState('');
-
-  const getImageUrl = (url) => {
-    if (!url) return '';
-    if (url.startsWith('/uploads')) {
-      return `${API_BASE_URL}${url}`;
-    }
-    return url;
-  };
-
-  const handleEditProductFilesChange = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setIsUploading(true);
-    setUploadProgressMessage(`Uploading ${files.length} images...`);
-    try {
-      const urls = await uploadImages(files);
-      if (urls && urls.length > 0) {
-        setEditUploadedImages(prev => [...prev, ...urls]);
-        setUploadProgressMessage(`Uploaded ${files.length} images successfully!`);
-        toast.success(`Uploaded ${files.length} images.`);
-      }
-    } catch (err) {
-      toast.error(err.message || 'Image upload failed');
-      setUploadProgressMessage('Image upload failed.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleOpenEditProductModal = (product) => {
-    setSelectedProduct(product);
-    setEditProductForm({
-      name: product.name,
-      description: product.description,
-      category: product.category,
-      price: product.price,
-      material: product.material,
-      estimated_delivery_days: product.estimated_delivery_days
-    });
-    const urls = [product.image_url, ...(product.image_urls || [])].filter(Boolean);
-    setEditUploadedImages(urls);
-    setIsEditProductModalOpen(true);
-  };
-
-  const handleUpdateProductSubmit = async (e) => {
-    e.preventDefault();
-    const { name, description, category, price, material, estimated_delivery_days } = editProductForm;
-    const primaryImage = editUploadedImages.length > 0 ? editUploadedImages[0] : 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80';
-    const secondaryImages = editUploadedImages.length > 1 ? editUploadedImages.slice(1) : [];
-
-    try {
-      await adminUpdateProduct(selectedProduct.id, {
-        name,
-        description,
-        category,
-        price: parseFloat(price),
-        material,
-        image_url: primaryImage,
-        image_urls: secondaryImages,
-        estimated_delivery_days: parseInt(estimated_delivery_days)
-      });
-      toast.success('Product updated successfully!');
-      setIsEditProductModalOpen(false);
-    } catch (err) {
-      toast.error(err.message || 'Product update failed');
-    }
-  };
+  const [activeTab, setActiveTab] = useState('verifications'); // verifications, users, catalog, ledgers, scores
+  const [scoreTargetUser, setScoreTargetUser] = useState('');
+  const [scoreProfileType, setScoreProfileType] = useState('trust');
+  const [scoreDelta, setScoreDelta] = useState('');
+  const [scoreNote, setScoreNote] = useState('Manual admin adjustment');
+  const [selectedHistoryUser, setSelectedHistoryUser] = useState('');
+  const [selectedHistory, setSelectedHistory] = useState(null);
+  const [proofLookup, setProofLookup] = useState('');
+  const [proofResult, setProofResult] = useState(null);
+  const [proofLoading, setProofLoading] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // grid or table
 
   const handleDeleteProduct = async (productId) => {
-    if (!window.confirm('Are you sure you want to delete this product from the global catalog?')) return;
+    if (!window.confirm("Are you sure you want to delete this product? This action is permanent.")) return;
     try {
-      await adminDeleteProduct(productId);
-      toast.success('Product deleted successfully.');
+      await deleteProduct(productId);
+      toast.success("Product deleted successfully!");
     } catch (err) {
-      toast.error(err.message || 'Failed to delete product');
+      toast.error(err.message || "Failed to delete product");
     }
   };
-
-  const handleShowProof = async (productId) => {
-    setLoadingProof(true);
-    try {
-      const res = await getDesignProof(productId);
-      setProofData(res);
-      setShowProof(true);
-    } catch (err) {
-      toast.error(err.message || 'Failed to load design proof');
-    } finally {
-      setLoadingProof(false);
-    }
-  };
-
 
   const handleVerify = async (artisanId, status) => {
     try {
@@ -164,45 +63,6 @@ export default function AdminPanel() {
       toast.success(`Artisan profile ${status} successfully!`);
     } catch (err) {
       toast.error(err.message || 'Failed to update artisan status');
-    }
-  };
-
-  const handleOpenReliabilityModal = async (artisan) => {
-    setSelectedArtisan(artisan);
-    setReliabilityDetails(null);
-    setLoadingReliability(true);
-    setIsReliabilityModalOpen(true);
-    setAdjustForm({ score_delta: '', reason: '' });
-    try {
-      const details = await getArtisanReliability(artisan.id || artisan._id);
-      setReliabilityDetails(details);
-    } catch (err) {
-      toast.error(err.message || 'Failed to fetch artisan reliability profile');
-    } finally {
-      setLoadingReliability(false);
-    }
-  };
-
-  const handleAdjustReliability = async (e) => {
-    e.preventDefault();
-    if (!adjustForm.score_delta || !adjustForm.reason) {
-      toast.error('Both adjustments values are required');
-      return;
-    }
-    try {
-      await adjustArtisanReliability(
-        selectedArtisan.id || selectedArtisan._id, 
-        parseFloat(adjustForm.score_delta), 
-        adjustForm.reason
-      );
-      toast.success('Reliability adjusted successfully!');
-      
-      // Refresh the modal content
-      const details = await getArtisanReliability(selectedArtisan.id || selectedArtisan._id);
-      setReliabilityDetails(details);
-      setAdjustForm({ score_delta: '', reason: '' });
-    } catch (err) {
-      toast.error(err.message || 'Failed to adjust reliability');
     }
   };
 
@@ -226,6 +86,23 @@ export default function AdminPanel() {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(val);
   };
 
+  const handleProofLookup = async (e) => {
+    e.preventDefault();
+    if (!proofLookup.trim()) return;
+    setProofLoading(true);
+    try {
+      const result = await lookupAdminProof(proofLookup.trim());
+      setProofResult(result);
+      if (!result.found) {
+        toast.error('No proof found for that ID');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Proof lookup failed');
+    } finally {
+      setProofLoading(false);
+    }
+  };
+
   // Build system stats array dynamically
   const systemStats = [
     { 
@@ -241,16 +118,16 @@ export default function AdminPanel() {
       color: 'text-primary' 
     },
     { 
-      label: 'Avg Reliability', 
-      value: adminStats?.average_reliability ? `${adminStats.average_reliability.toFixed(1)}%` : '100.0%', 
-      icon: Activity, 
-      color: 'text-teal' 
+      label: 'Awaiting Review', 
+      value: adminStats ? (adminStats.pending_verifications).toString() : '0', 
+      icon: Shield, 
+      color: 'text-gold' 
     },
     { 
-      label: 'Delayed Orders', 
-      value: adminStats?.delayed_orders_count !== undefined ? (adminStats.delayed_orders_count).toString() : '0', 
-      icon: Shield, 
-      color: 'text-red' 
+      label: 'Escrow Orders', 
+      value: adminStats ? (adminStats.total_orders).toString() : '0', 
+      icon: Clipboard, 
+      color: 'text-tertiary' 
     }
   ];
 
@@ -313,6 +190,12 @@ export default function AdminPanel() {
           onClick={() => setActiveTab('ledgers')}
         >
           <CreditCard size={18} /> Audit Escrow Ledgers
+        </button>
+        <button 
+          className={`tab-link ${activeTab === 'scores' ? 'active' : ''}`}
+          onClick={() => setActiveTab('scores')}
+        >
+          <Scale size={18} /> Trust & Reliability Scores
         </button>
       </div>
 
@@ -403,10 +286,9 @@ export default function AdminPanel() {
                         <th>Name</th>
                         <th>Username</th>
                         <th>Email</th>
-                        <th>Phone / Score</th>
+                        <th>Phone Number</th>
                         <th>System Role</th>
                         <th>Status</th>
-                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -416,26 +298,7 @@ export default function AdminPanel() {
                           <td><strong>{u.full_name}</strong></td>
                           <td>{u.username}</td>
                           <td>{u.email}</td>
-                          <td>
-                            <div>{u.phone_number}</div>
-                            {u.role === 'artisan' && u.reliability_profile && (
-                              <div style={{ marginTop: '4px' }}>
-                                <span 
-                                  className="badge"
-                                  style={{
-                                    background: u.reliability_profile.reliability_score >= 90 ? '#e6f4ea' : u.reliability_profile.reliability_score >= 70 ? '#e8f0fe' : u.reliability_profile.reliability_score >= 50 ? '#fef7e0' : '#fce8e6', 
-                                    color: u.reliability_profile.reliability_score >= 90 ? '#137333' : u.reliability_profile.reliability_score >= 70 ? '#1a73e8' : u.reliability_profile.reliability_score >= 50 ? '#b06000' : '#c5221f',
-                                    fontSize: '10px',
-                                    padding: '2px 6px',
-                                    fontWeight: 'bold',
-                                    border: '1px solid currentColor'
-                                  }}
-                                >
-                                  🛡️ {u.reliability_profile.reliability_score.toFixed(1)}%
-                                </span>
-                              </div>
-                            )}
-                          </td>
+                          <td>{u.phone_number}</td>
                           <td>
                             <span className={`badge ${u.role === 'admin' ? 'badge-gold' : u.role === 'artisan' ? 'badge-teal' : 'badge-green'}`}>
                               {u.role}
@@ -446,23 +309,104 @@ export default function AdminPanel() {
                               {u.is_active ? 'Active' : 'Inactive'}
                             </span>
                           </td>
-                          <td>
-                            {u.role === 'artisan' && (
-                              <button 
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => handleOpenReliabilityModal(u)}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 8px', fontSize: '11px' }}
-                              >
-                                <Activity size={12} /> Audit
-                              </button>
-                            )}
-                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
+              <div className="card mt-6" style={{ padding: '20px' }}>
+                <h4 className="headline-sm mb-3">Manual Score Adjustment</h4>
+                <div className="input-grid">
+                  <div className="input-group">
+                    <label className="input-label">Select user</label>
+                    <select className="input-field" value={scoreTargetUser} onChange={(e) => setScoreTargetUser(e.target.value)}>
+                      <option value="">Choose a user</option>
+                      {adminUsers.map(u => (
+                        <option key={u.id || u._id} value={u.id || u._id}>{u.full_name} ({u.role})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Score type</label>
+                    <select className="input-field" value={scoreProfileType} onChange={(e) => setScoreProfileType(e.target.value)}>
+                      <option value="trust">Client trust</option>
+                      <option value="reliability">Artisan reliability</option>
+                    </select>
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Delta</label>
+                    <input className="input-field" type="number" step="0.1" value={scoreDelta} onChange={(e) => setScoreDelta(e.target.value)} />
+                  </div>
+                  <div className="input-group">
+                    <label className="input-label">Note</label>
+                    <input className="input-field" value={scoreNote} onChange={(e) => setScoreNote(e.target.value)} />
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary mt-4"
+                  onClick={async () => {
+                    if (!scoreTargetUser || !scoreDelta) return toast.error('Choose a user and delta first');
+                    try {
+                      await adjustUserScore(scoreTargetUser, { profile_type: scoreProfileType, delta: parseFloat(scoreDelta), note: scoreNote });
+                      toast.success('Score adjusted');
+                    } catch (err) {
+                      toast.error(err.message || 'Adjustment failed');
+                    }
+                  }}
+                >
+                  Apply Adjustment
+                </button>
+
+                <div className="mt-6">
+                  <h4 className="headline-sm mb-3">View Score History</h4>
+                  <div className="input-grid">
+                    <div className="input-group">
+                      <label className="input-label">User</label>
+                      <select className="input-field" value={selectedHistoryUser} onChange={(e) => setSelectedHistoryUser(e.target.value)}>
+                        <option value="">Choose a user</option>
+                        {adminUsers.map(u => (
+                          <option key={`history-${u.id || u._id}`} value={u.id || u._id}>{u.full_name} ({u.role})</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-secondary mt-3"
+                    onClick={async () => {
+                      if (!selectedHistoryUser) return toast.error('Choose a user first');
+                      try {
+                        const res = await fetchUserScoreHistory(selectedHistoryUser);
+                        setSelectedHistory(res);
+                      } catch (err) {
+                        toast.error(err.message || 'Could not load score history');
+                      }
+                    }}
+                  >
+                    Load History
+                  </button>
+                  {selectedHistory && (
+                    <div className="card mt-4" style={{ padding: '16px', background: '#faf8f5' }}>
+                      <div className="quote-header">
+                        <strong>{selectedHistory.profile_type === 'trust' ? 'Client Trust' : 'Artisan Reliability'}</strong>
+                        <span className="badge badge-gold">{selectedHistory.badge}</span>
+                      </div>
+                      <p className="body-sm text-muted mt-2">{selectedHistory.path_to_improvement}</p>
+                      <div className="quotations-list mt-3">
+                        {(selectedHistory.score_history || []).slice(0, 5).map((entry, idx) => (
+                          <div key={`${entry.event_type}-${idx}`} className="card" style={{ padding: '12px' }}>
+                            <div className="quote-header">
+                              <strong>{entry.event_type}</strong>
+                              <span className={entry.delta < 0 ? 'text-red' : 'text-green'}>{entry.delta > 0 ? `+${entry.delta}` : entry.delta}</span>
+                            </div>
+                            <p className="body-sm text-muted mt-1">{entry.note}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -474,9 +418,41 @@ export default function AdminPanel() {
               exit={{ opacity: 0, y: -10 }}
               className="catalog-panel"
             >
-              <h3 className="headline-md mb-4">Global Jewellery Catalog Audit</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h3 className="headline-md">Global Jewellery Catalog Audit</h3>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    className={`btn ${viewMode === 'grid' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setViewMode('grid')}
+                    style={{ padding: '8px 16px', fontSize: '14px', height: 'fit-content' }}
+                  >
+                    Visual Grid
+                  </button>
+                  <button 
+                    className={`btn ${viewMode === 'table' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => setViewMode('table')}
+                    style={{ padding: '8px 16px', fontSize: '14px', height: 'fit-content' }}
+                  >
+                    Audit Table
+                  </button>
+                </div>
+              </div>
+
               {adminProducts.length === 0 ? (
                 <div className="empty-state">No products registered in system database.</div>
+              ) : viewMode === 'grid' ? (
+                <div className="products-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+                  {adminProducts.map(product => (
+                    <MarketplaceProductCard 
+                      key={product.id || product._id}
+                      product={product}
+                      formatCurrency={formatCurrency}
+                      setRequestForm={() => {}}
+                      setIsRequestModalOpen={() => {}}
+                      onDeleteSuccess={refreshData}
+                    />
+                  ))}
+                </div>
               ) : (
                 <div className="table-responsive card">
                   <table className="admin-table">
@@ -488,57 +464,32 @@ export default function AdminPanel() {
                         <th>Material</th>
                         <th>Price</th>
                         <th>Artisan ID</th>
-                        <th>Blockchain Proof</th>
                         <th>Status</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {adminProducts.map(p => (
-                        <tr key={p.id}>
-                          <td><span className="font-mono text-muted">{p.id}</span></td>
+                        <tr key={p.id || p._id}>
+                          <td><span className="font-mono text-muted">{p.id || p._id}</span></td>
                           <td><strong>{p.name}</strong></td>
                           <td>{p.category}</td>
                           <td>{p.material}</td>
                           <td><strong>{formatCurrency(p.price)}</strong></td>
                           <td><span className="font-mono text-muted">{p.artisan_id}</span></td>
                           <td>
-                            {p.design_hash ? (
-                              <span 
-                                className="badge badge-teal" 
-                                style={{ cursor: 'pointer', background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', border: '1px solid var(--color-teal)' }}
-                                onClick={() => handleShowProof(p.id)}
-                              >
-                                View Proof
-                              </span>
-                            ) : (
-                              <span className="badge badge-gold" style={{ background: 'rgba(217, 119, 6, 0.1)', color: '#d97706', border: '1px solid rgba(217, 119, 6, 0.2)' }}>
-                                Not Anchored
-                              </span>
-                            )}
-                          </td>
-                          <td>
                             <span className={`badge ${p.is_active ? 'badge-green' : 'badge-gold'}`}>
                               {p.is_active ? 'Visible' : 'Hidden'}
                             </span>
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              <button 
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => handleOpenEditProductModal(p)}
-                                style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                              >
-                                <Edit size={12} /> Edit
-                              </button>
-                              <button 
-                                className="btn btn-logout btn-sm"
-                                onClick={() => handleDeleteProduct(p.id)}
-                                style={{ padding: '4px 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                              >
-                                <Trash size={12} /> Delete
-                              </button>
-                            </div>
+                            <button
+                              className="btn btn-logout btn-sm"
+                              style={{ padding: '4px 8px', color: '#ba1a1a', border: '1px solid rgba(186, 26, 26, 0.2)', fontSize: '12px', cursor: 'pointer' }}
+                              onClick={() => handleDeleteProduct(p.id || p._id)}
+                            >
+                              Delete
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -558,6 +509,46 @@ export default function AdminPanel() {
               className="ledgers-panel"
             >
               <div className="requests-container">
+                <div className="panel-list-section">
+                  <h3 className="headline-md">Verified Transaction Receipt Lookup</h3>
+                  <form onSubmit={handleProofLookup} className="auth-form" style={{ marginBottom: '16px' }}>
+                    <div className="input-group">
+                      <label className="input-label">Proof ID or Order ID</label>
+                      <input
+                        className="input-field"
+                        value={proofLookup}
+                        onChange={(e) => setProofLookup(e.target.value)}
+                        placeholder="Paste proof_id or order_id"
+                      />
+                    </div>
+                    <button className="btn btn-primary" type="submit" disabled={proofLoading}>
+                      {proofLoading ? 'Checking...' : 'Verify Receipt'}
+                    </button>
+                  </form>
+                  {proofResult && (
+                    <div className="card" style={{ padding: '16px', background: proofResult.valid ? '#f0fdf8' : '#fff5f5' }}>
+                      <div className="quote-header">
+                        <div>
+                          <h4 className="headline-sm">{proofResult.valid ? 'Verified Transaction' : 'Could Not Verify This Proof'}</h4>
+                          <span className="label-sm text-muted">Server-side HMAC signature check</span>
+                        </div>
+                        <span className={`badge ${proofResult.valid ? 'badge-green' : 'badge-red'}`}>{proofResult.valid ? 'valid' : 'invalid'}</span>
+                      </div>
+                      {proofResult.proof && (
+                        <div className="request-spec-grid mt-4">
+                          <div>Proof ID: <strong>{proofResult.proof.proof_id}</strong></div>
+                          <div>Order ID: <strong>{proofResult.proof.order_id}</strong></div>
+                          <div>Jewel Type: <strong>{proofResult.proof.jewel_type}</strong></div>
+                          <div>Amount: <strong>{formatCurrency(proofResult.proof.amount)}</strong></div>
+                        </div>
+                      )}
+                      {proofResult.qr_image && (
+                        <img src={proofResult.qr_image} alt="Proof QR" style={{ width: '112px', height: '112px', marginTop: '12px', border: '1px solid var(--color-outline)', borderRadius: '8px' }} />
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Orders List */}
                 <div className="panel-list-section">
                   <h3 className="headline-md">System Orders Directory</h3>
@@ -628,367 +619,28 @@ export default function AdminPanel() {
               </div>
             </motion.div>
           )}
+
+          {activeTab === 'scores' && (
+            <motion.div
+              key="scores"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="scores-panel"
+            >
+              <div className="card" style={{ padding: '20px' }}>
+                <h3 className="headline-md mb-2">Score Governance</h3>
+                <p className="body-md text-muted">Manual trust and reliability adjustments are logged here. Use these controls for dispute resolution, late-delivery remedies, or exceptional recovery cases.</p>
+                <div className="mt-4" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <span className="badge badge-green">Client trust histories available</span>
+                  <span className="badge badge-teal">Artisan reliability histories available</span>
+                  <span className="badge badge-gold">Admin adjustments are recorded</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
-
-      {/* Proof Modal */}
-      <Modal 
-        isOpen={showProof} 
-        onClose={() => setShowProof(false)} 
-        title="Blockchain Registration Proof"
-      >
-        {proofData && (
-          <div className="space-y-4 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div className="bg-teal-50 p-4 rounded-lg border border-teal-200 text-teal-800" style={{ background: '#e6f4f1', padding: '12px', borderRadius: '8px', color: '#115e59', border: '1px solid #b2dfdb' }}>
-              <p className="font-semibold" style={{ fontWeight: 'bold' }}>Blockchain Design Authenticity Verified</p>
-              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>This proof bundle confirms the design's registration date and ownership on the VeChain Thor Testnet blockchain.</p>
-            </div>
-            
-            <div className="space-y-2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Design SHA-256 Hash</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.design_hash}
-                </code>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Perceptual Hash (pHash)</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.phash}
-                </code>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Transaction ID (VeChain)</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.tx_id}
-                </code>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Block Number</span>
-                  <strong>{proofData.block_number}</strong>
-                </div>
-                <div>
-                  <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Registered At</span>
-                  <strong>{new Date(proofData.registered_at).toLocaleString()}</strong>
-                </div>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Artisan Wallet Address</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.artisan_address}
-                </code>
-              </div>
-            </div>
-
-            <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <a 
-                href={proofData.explorer_url} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="btn btn-primary text-xs"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px' }}
-              >
-                View on VeChain Explorer
-              </a>
-              <button className="btn btn-secondary text-xs" style={{ fontSize: '12px' }} onClick={() => setShowProof(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Admin Edit Product Modal */}
-      <Modal isOpen={isEditProductModalOpen} onClose={() => setIsEditProductModalOpen(false)} title="Admin: Edit Catalog Product">
-        {selectedProduct && (
-          <form onSubmit={handleUpdateProductSubmit} className="modal-form-scrollable">
-            <div className="input-group">
-              <label className="input-label">Jewelry Product Name</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={editProductForm.name}
-                onChange={(e) => setEditProductForm({ ...editProductForm, name: e.target.value })}
-                required 
-              />
-            </div>
-
-            <div className="input-grid">
-              <div className="input-group">
-                <label className="input-label">Category</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  value={editProductForm.category}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, category: e.target.value })}
-                  required 
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Product Retail Price (INR)</label>
-                <input 
-                  type="number" 
-                  className="input-field" 
-                  value={editProductForm.price}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, price: e.target.value })}
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="input-grid">
-              <div className="input-group">
-                <label className="input-label">Material Specifications</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  value={editProductForm.material}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, material: e.target.value })}
-                  required 
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Estimated Delivery (Days)</label>
-                <input 
-                  type="number" 
-                  className="input-field" 
-                  value={editProductForm.estimated_delivery_days}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, estimated_delivery_days: e.target.value })}
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Jewelry Design Images</label>
-              <div 
-                style={{
-                  border: '2px dashed var(--color-outline)',
-                  borderRadius: '8px',
-                  padding: '20px',
-                  textAlign: 'center',
-                  background: 'rgba(255,255,255,0.05)',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.2s'
-                }}
-                onClick={() => document.getElementById('admin-edit-product-image-file-input').click()}
-              >
-                <Plus size={24} style={{ margin: '0 auto 8px', color: 'var(--color-primary)' }} />
-                <p className="body-sm" style={{ margin: 0 }}>Click or drag images to upload additional files</p>
-                <span className="label-sm text-muted">Multiple images allowed. The first image will be set as primary.</span>
-              </div>
-              <input 
-                id="admin-edit-product-image-file-input"
-                type="file" 
-                style={{ display: 'none' }}
-                accept="image/*"
-                multiple 
-                onChange={handleEditProductFilesChange}
-              />
-              {isUploading && <span className="label-sm text-secondary animate-pulse" style={{ display: 'block', marginTop: '8px' }}>Uploading files...</span>}
-              {uploadProgressMessage && <span className="label-sm text-teal" style={{ display: 'block', marginTop: '8px' }}>{uploadProgressMessage}</span>}
-              
-              {/* Visual Preview Grid */}
-              {editUploadedImages.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '10px', marginTop: '16px' }}>
-                  {editUploadedImages.map((img, idx) => (
-                    <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', border: '1px solid var(--color-outline)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <img src={getImageUrl(img)} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button 
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditUploadedImages(prev => prev.filter((_, i) => i !== idx));
-                        }}
-                        style={{
-                          position: 'absolute',
-                          top: '2px',
-                          right: '2px',
-                          background: 'rgba(220, 38, 38, 0.9)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '50%',
-                          width: '18px',
-                          height: '18px',
-                          fontSize: '10px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          lineHeight: 1
-                        }}
-                        title="Remove image"
-                      >
-                        ✕
-                      </button>
-                      {idx === 0 ? (
-                        <span style={{
-                          position: 'absolute',
-                          bottom: '0',
-                          left: '0',
-                          right: '0',
-                          background: 'var(--color-teal)',
-                          color: 'white',
-                          fontSize: '9px',
-                          textAlign: 'center',
-                          padding: '2px 0',
-                          fontWeight: 'bold'
-                        }}>
-                          Primary
-                        </span>
-                      ) : (
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Move this image to index 0
-                            setEditUploadedImages(prev => {
-                              const newImages = [...prev];
-                              const [selected] = newImages.splice(idx, 1);
-                              return [selected, ...newImages];
-                            });
-                          }}
-                          style={{
-                            position: 'absolute',
-                            bottom: '0',
-                            left: '0',
-                            right: '0',
-                            background: 'rgba(0,0,0,0.6)',
-                            color: 'white',
-                            fontSize: '8px',
-                            textAlign: 'center',
-                            padding: '2px 0',
-                            cursor: 'pointer'
-                          }}
-                          title="Click to set as primary"
-                        >
-                          Make Primary
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Catalog Description</label>
-              <textarea 
-                className="input-field text-area-field" 
-                value={editProductForm.description}
-                onChange={(e) => setEditProductForm({ ...editProductForm, description: e.target.value })}
-                required 
-              />
-            </div>
-
-            <div className="modal-actions border-t pt-4">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsEditProductModalOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Save Changes</button>
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      {/* Artisan Reliability Audit & Manual Override Modal */}
-      <Modal 
-        isOpen={isReliabilityModalOpen} 
-        onClose={() => setIsReliabilityModalOpen(false)} 
-        title={selectedArtisan ? `Reliability Audit: ${selectedArtisan.full_name}` : "Artisan Reliability Audit"}
-      >
-        <div className="space-y-6" style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxHeight: '75vh', overflowY: 'auto', paddingRight: '4px' }}>
-          {loadingReliability && <div className="text-center py-4">Loading reliability profile and history...</div>}
-          
-          {!loadingReliability && reliabilityDetails && (
-            <>
-              {/* Score Summary Metrics */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ background: '#f7fafc', padding: '16px', borderRadius: '8px', border: '1px solid #edf2f7', textAlign: 'center' }}>
-                  <span style={{ fontSize: '12px', color: '#718096', textTransform: 'uppercase', tracking: 'wide' }}>Current Score</span>
-                  <h4 style={{ fontSize: '24px', color: 'var(--color-primary)', margin: '4px 0 0 0', fontWeight: 'bold' }}>
-                    {reliabilityDetails.reliability_score.toFixed(1)}%
-                  </h4>
-                </div>
-                <div style={{ background: '#f7fafc', padding: '16px', borderRadius: '8px', border: '1px solid #edf2f7', textAlign: 'center' }}>
-                  <span style={{ fontSize: '12px', color: '#718096', textTransform: 'uppercase', tracking: 'wide' }}>On-Time Streak</span>
-                  <h4 style={{ fontSize: '24px', color: 'var(--color-teal)', margin: '4px 0 0 0', fontWeight: 'bold' }}>
-                    {reliabilityDetails.consecutive_ontime_orders} Orders
-                  </h4>
-                </div>
-              </div>
-
-              {/* History Timeline */}
-              <div>
-                <h4 className="label-sm mb-2" style={{ fontWeight: 'bold' }}>Score Event History:</h4>
-                {reliabilityDetails.score_history?.length === 0 ? (
-                  <p className="body-sm text-muted">No penalty/reward events logged yet. Default score: 100.0</p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', background: '#fafafa', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px' }}>
-                    {reliabilityDetails.score_history.map((event, index) => (
-                      <div key={index} style={{ borderBottom: '1px solid #edf2f7', paddingBottom: '6px', marginBottom: '6px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                          <span style={{ color: event.delta < 0 ? '#c53030' : event.delta > 0 ? '#22543d' : '#2b6cb0' }}>
-                            {event.event_type} ({event.delta >= 0 ? `+${event.delta.toFixed(1)}` : event.delta.toFixed(1)})
-                          </span>
-                          <span className="text-muted" style={{ fontSize: '10px' }}>{new Date(event.timestamp).toLocaleString()}</span>
-                        </div>
-                        {event.order_id && <div className="text-muted">Order ID: {event.order_id}</div>}
-                        <div style={{ color: '#4a5568' }}>{event.note}</div>
-                        <div className="text-muted" style={{ fontSize: '9px' }}>Score transitioned: {event.old_score.toFixed(1)} ➔ {event.new_score.toFixed(1)}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Override Form */}
-              <form onSubmit={handleAdjustReliability} style={{ borderTop: '1px solid #edf2f7', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <h4 className="label-sm" style={{ fontWeight: 'bold' }}>Apply Manual Score Adjustment:</h4>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
-                  <div className="input-group">
-                    <label className="input-label" style={{ fontSize: '11px' }}>Score Change (e.g. -10, +5)</label>
-                    <input 
-                      type="number" 
-                      step="0.1" 
-                      className="input-field" 
-                      placeholder="Delta"
-                      value={adjustForm.score_delta}
-                      onChange={(e) => setAdjustForm({ ...adjustForm, score_delta: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="input-group">
-                    <label className="input-label" style={{ fontSize: '11px' }}>Adjustment Justification Reason</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      placeholder="e.g. Excused late delivery..."
-                      value={adjustForm.reason}
-                      onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px' }}>
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary btn-sm"
-                    style={{ background: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  >
-                    Apply Adjustment Override
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
-
-          <div className="modal-actions border-t pt-4" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-            <button className="btn btn-secondary text-sm" onClick={() => setIsReliabilityModalOpen(false)}>Close Audit</button>
-          </div>
-        </div>
-      </Modal>
     </motion.div>
   );
 }
-

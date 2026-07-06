@@ -1,6 +1,5 @@
 from datetime import datetime, date
 from bson import ObjectId
-from app.database import get_collection
 
 # Named constants for scoring event deltas
 SCORE_EVENTS = {
@@ -12,6 +11,22 @@ SCORE_EVENTS = {
     "STREAK_BONUS": 15.0,
 }
 
+DELAY_DISCOUNT_RULES = {
+    "moderate": 7.5,
+    "severe": 17.5,
+    "extension_broken_bonus": 5.0,
+}
+
+REDEMPTION_STREAK_THRESHOLD = 3
+
+
+def get_reliability_profile_defaults() -> dict:
+    return {
+        "reliability_score": 100.0,
+        "score_history": [],
+        "consecutive_ontime_orders": 0,
+    }
+
 def get_reliability_badge(score: float) -> str:
     """Return the badge label based on the numerical reliability score."""
     if score >= 90.0:
@@ -22,6 +37,38 @@ def get_reliability_badge(score: float) -> str:
         return "New / Building History"
     else:
         return "Frequently Delayed"
+
+
+def get_reliability_path_hint(profile: dict | None) -> str:
+    profile = profile or {}
+    remaining = max(0, REDEMPTION_STREAK_THRESHOLD - int(profile.get("consecutive_ontime_orders", 0) or 0))
+    if remaining == 0:
+        return "You are on a strong streak. Keep delivering on time."
+    if remaining == 1:
+        return "Complete 1 more on-time order to improve this score."
+    return f"Complete {remaining} more on-time orders to improve this score."
+
+
+def calculate_delay_discount(days_late: int, extension_broken: bool) -> float:
+    if days_late < 4:
+        return 0.0
+    if days_late < 10:
+        discount = DELAY_DISCOUNT_RULES["moderate"]
+    else:
+        discount = DELAY_DISCOUNT_RULES["severe"]
+    if extension_broken:
+        discount += DELAY_DISCOUNT_RULES["extension_broken_bonus"]
+    return min(25.0, discount)
+
+
+def get_reliability_path_hint(profile: dict | None) -> str:
+    profile = profile or {}
+    remaining = max(0, REDEMPTION_STREAK_THRESHOLD - int(profile.get("consecutive_ontime_orders", 0) or 0))
+    if remaining == 0:
+        return "You are on a strong streak. Keep delivering on time."
+    if remaining == 1:
+        return "Complete 1 more on-time order to improve this score."
+    return f"Complete {remaining} more on-time orders to improve this score."
 
 async def apply_reliability_event(db, artisan_id: ObjectId, event_type: str, order_id=None, note=None):
     """

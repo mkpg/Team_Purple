@@ -18,7 +18,7 @@ const itemVariants = {
   visible: { y: 0, opacity: 1 }
 };
 
-function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen }) {
+export function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen }) {
   const { t, language, API_BASE_URL, getDesignProof } = useContext(CraftShieldContext);
 
 
@@ -322,6 +322,7 @@ export default function ClientDashboard() {
     completeOrder,
     cancelOrder,
     cancelOrderDueToDelay,
+    autoReleaseOrder,
     uploadImages,
     t,
     language
@@ -376,6 +377,11 @@ export default function ClientDashboard() {
       setIsUploading(false);
     }
   };
+
+  // Digital Contract Modal State
+  const [signingQuote, setSigningQuote] = useState(null);
+  const [signatureName, setSignatureName] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -436,13 +442,28 @@ export default function ClientDashboard() {
     }
   };
 
-  const handleAcceptQuote = async (quoteId) => {
+  const handleAcceptQuote = (quote) => {
+    setSigningQuote(quote);
+    setSignatureName('');
+    setTermsAccepted(false);
+  };
+
+  const handleSignContractAndAccept = async () => {
+    if (!termsAccepted) {
+      toast.error('You must agree to the contract terms first.');
+      return;
+    }
+    if (!signatureName.trim()) {
+      toast.error('Please type your name to sign the contract.');
+      return;
+    }
     try {
-      await acceptQuotation(quoteId);
-      toast.success('Quotation accepted! Order created.');
+      await acceptQuotation(signingQuote.id, { signed_by: signatureName });
+      toast.success('Contract signed & Quotation accepted! Order created.');
+      setSigningQuote(null);
       setActiveTab('orders');
     } catch (err) {
-      toast.error(err.message || 'Failed to accept quote');
+      toast.error(err.message || 'Failed to accept quotation');
     }
   };
 
@@ -814,8 +835,8 @@ export default function ClientDashboard() {
                                 <button className="btn btn-secondary btn-sm" onClick={() => handleRejectQuote(quote.id)}>
                                   Reject
                                 </button>
-                                <button className="btn btn-primary btn-sm" onClick={() => handleAcceptQuote(quote.id)}>
-                                  Accept & Order
+                                <button className="btn btn-primary btn-sm" onClick={() => handleAcceptQuote(quote)}>
+                                  Sign Contract & Accept
                                 </button>
                               </div>
                             )}
@@ -859,6 +880,11 @@ export default function ClientDashboard() {
                               {order.extended_completion_date && (
                                 <span className="label-sm" style={{ background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', padding: '2px 6px', borderRadius: '4px' }}>
                                   🔄 Extended to: <strong>{new Date(order.extended_completion_date).toLocaleDateString()}</strong>
+                                </span>
+                              )}
+                              {order.contract_signed && (
+                                <span className="label-sm" style={{ background: 'rgba(74, 185, 122, 0.15)', color: '#2f855a', padding: '2px 6px', borderRadius: '4px' }}>
+                                  📄 Contract Signed by: <strong>{order.contract_signed_by || 'Client'}</strong>
                                 </span>
                               )}
                             </div>
@@ -973,12 +999,34 @@ export default function ClientDashboard() {
                               </button>
                             )}
                             {order.status === 'Delivered' && (
-                              <button 
-                                className="btn btn-primary"
-                                onClick={() => handleConfirmDelivery(order.id)}
-                              >
-                                <CheckCircle2 size={16} /> Confirm Receipt & Release
-                              </button>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(20, 110, 120, 0.3)', fontSize: '13px', fontWeight: '500' }}>
+                                  <span>⏳ <strong>Escrow Protection:</strong> Automatic payment release triggers in <strong>2 days, 23 hours</strong> if not confirmed manually.</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                  <button 
+                                    className="btn btn-primary"
+                                    onClick={() => handleConfirmDelivery(order.id)}
+                                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                  >
+                                    <CheckCircle2 size={16} /> Confirm Receipt & Release
+                                  </button>
+                                  <button 
+                                    className="btn"
+                                    onClick={async () => {
+                                      try {
+                                        await autoReleaseOrder(order.id);
+                                        toast.success('Escrow period elapsed! Payments auto-released to artisan.');
+                                      } catch (err) {
+                                        toast.error(err.message || 'Auto-release failed');
+                                      }
+                                    }}
+                                    style={{ background: 'var(--color-surface-mixed)', color: 'var(--color-primary)', border: '1px solid var(--color-outline)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                  >
+                                    ⚡ Simulate 3-Day Escrow Release
+                                  </button>
+                                </div>
+                              </div>
                             )}
                             {order.delay_status?.eligible_for_refund && order.status !== 'cancelled_artisan_delay' && (
                               <button 
@@ -1224,6 +1272,73 @@ export default function ClientDashboard() {
               <button type="submit" className="btn btn-primary">Submit Payment</button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* Digital Contract Modal */}
+      <Modal isOpen={!!signingQuote} onClose={() => setSigningQuote(null)} title="📄 Digital Contract Commission Agreement">
+        {signingQuote && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+            <div className="contract-terms-box" style={{
+              maxHeight: '260px',
+              overflowY: 'auto',
+              border: '1px solid var(--color-outline)',
+              borderRadius: '8px',
+              padding: '14px',
+              background: 'var(--color-surface-mixed)',
+              fontSize: '13px',
+              lineHeight: '1.6',
+              color: 'var(--color-text-body)'
+            }}>
+              <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary)', fontWeight: 'bold' }}>COMMISSIONING CONTRACT TERMS</h4>
+              <p>This document constitutes a binding digital agreement between <strong>Client ({signatureName || 'you'})</strong> and <strong>Artisan ({signingQuote.artisan_business_name})</strong> under the protection of the CraftShield Marketplace platform.</p>
+              
+              <h5 style={{ margin: '12px 0 4px 0', fontWeight: 'bold', color: 'var(--color-text-heading)' }}>1. Financial Commitment & Escrow</h5>
+              <p>The client agrees to commission the custom design for a total amount of <strong>{formatCurrency(signingQuote.quoted_amount)}</strong>. An advance payment of <strong>{formatCurrency(signingQuote.advance_amount)}</strong> must be paid into the CraftShield Secure Escrow before work/design commences.</p>
+              
+              <h5 style={{ margin: '12px 0 4px 0', fontWeight: 'bold', color: 'var(--color-text-heading)' }}>2. Material & Labor Protections</h5>
+              <p>To safeguard the artisan's materials and dedicated labor, <strong>no cancellations or refunds are permitted once production has started or design phases have begun</strong>. The 50% non-refundable advance fee will be forfeited to the artisan if cancellation is attempted after production starts.</p>
+              
+              <h5 style={{ margin: '12px 0 4px 0', fontWeight: 'bold', color: 'var(--color-text-heading)' }}>3. Completion & Escrow Auto-Release</h5>
+              <p>The artisan commits to a target completion date of <strong>{new Date(signingQuote.estimated_delivery_date).toLocaleDateString()}</strong>. Upon delivery, the client has 3 days to inspect and confirm receipt. If no action is taken, the final payment is automatically released from escrow to the artisan.</p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer', fontSize: '13px' }}>
+                <input 
+                  type="checkbox" 
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  style={{ marginTop: '3px' }}
+                />
+                <span>I read and agree to all terms, including the <strong>forfeiture of deposit</strong> and <strong>no cancellation policy</strong> after production has started.</span>
+              </label>
+            </div>
+
+            <div className="input-group">
+              <label className="input-label">Type your full name to sign digitally:</label>
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="e.g. John Doe"
+                value={signatureName}
+                onChange={(e) => setSignatureName(e.target.value)}
+                required 
+              />
+            </div>
+
+            <div className="modal-actions border-t pt-4">
+              <button type="button" className="btn btn-secondary" onClick={() => setSigningQuote(null)}>Cancel</button>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                onClick={handleSignContractAndAccept}
+                disabled={!termsAccepted || !signatureName.trim()}
+              >
+                Sign Contract & Commission Design
+              </button>
+            </div>
+          </div>
         )}
       </Modal>
     </motion.div>

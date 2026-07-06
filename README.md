@@ -137,3 +137,14 @@ For local development on Windows, the fastest path is:
 1. Ensure MongoDB is running.
 2. Start both apps with [run_app.bat](run_app.bat).
 3. Open the frontend at `http://localhost:5173`.
+
+## VeChain Usage Mode
+
+The cleanest low-friction path for this project is a backend-relayed provenance flow:
+
+1. The backend signs or relays VeChain testnet provenance writes with a sponsor wallet.
+2. Clients and artisans do not need to connect a wallet for normal app usage.
+3. The UI stores the returned transaction/hash reference in the order or design record.
+4. If you want fully public verification later, expose a read-only proof page that only needs the transaction hash.
+
+This keeps the app usable like a normal marketplace while still giving you blockchain-backed proof when needed.

@@ -4,6 +4,8 @@ from app.services.auth_service import AuthService
 from app.dependencies import get_current_user
 from app.database import get_collection
 from app.utils.serializers import serialize_doc
+from app.services.trust_score import get_trust_badge, get_trust_path_hint
+from app.services.reliability_score import get_reliability_badge, get_reliability_path_hint
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -31,6 +33,12 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     """Fetch profile data of the currently logged-in user."""
     user_data = serialize_doc(current_user)
     user_data.pop("password_hash", None)
+
+    if current_user.get("role") == "client":
+        trust_profile = current_user.get("trust_profile") or {}
+        score = float(trust_profile.get("trust_score", 100.0))
+        user_data["trust_badge"] = get_trust_badge(score)
+        user_data["trust_path_to_improvement"] = get_trust_path_hint(trust_profile)
     
     if current_user.get("role") == "artisan":
         profiles_coll = get_collection("artisan_profiles")
@@ -40,20 +48,9 @@ async def get_me(current_user: dict = Depends(get_current_user)):
             user_data["verification_status"] = profile.get("verification_status", "pending")
         else:
             user_data["verification_status"] = "pending"
-    elif current_user.get("role") == "client":
-        if "trust_profile" not in user_data or not user_data.get("trust_profile"):
-            default_trust = {
-                "trust_score": 100.0,
-                "late_payments": 0,
-                "cancelled_orders": 0,
-                "completed_payments": 0,
-                "score_history": []
-            }
-            users_coll = get_collection("users")
-            await users_coll.update_one(
-                {"_id": current_user["_id"]},
-                {"$set": {"trust_profile": default_trust}}
-            )
-            user_data["trust_profile"] = default_trust
+        reliability_profile = current_user.get("reliability_profile") or {}
+        score = float(reliability_profile.get("reliability_score", 100.0))
+        user_data["reliability_badge"] = get_reliability_badge(score)
+        user_data["reliability_path_to_improvement"] = get_reliability_path_hint(reliability_profile)
             
     return user_data

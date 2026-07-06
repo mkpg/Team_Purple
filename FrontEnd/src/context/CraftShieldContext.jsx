@@ -275,10 +275,14 @@ export const CraftShieldProvider = ({ children }) => {
     return res;
   };
 
-  const acceptQuotation = async (quotationId) => {
-    const res = await apiFetch(`/api/client/quotations/${quotationId}/accept`, {
+  const acceptQuotation = async (quotationId, payload = null) => {
+    const options = {
       method: 'PUT'
-    });
+    };
+    if (payload) {
+      options.body = JSON.stringify(payload);
+    }
+    const res = await apiFetch(`/api/client/quotations/${quotationId}/accept`, options);
     await refreshData();
     return res;
   };
@@ -327,6 +331,14 @@ export const CraftShieldProvider = ({ children }) => {
 
   const cancelOrderDueToDelay = async (orderId) => {
     const res = await apiFetch(`/api/client/orders/${orderId}/cancel-delay`, {
+      method: 'PUT'
+    });
+    await refreshData();
+    return res;
+  };
+
+  const autoReleaseOrder = async (orderId) => {
+    const res = await apiFetch(`/api/client/orders/${orderId}/auto-release`, {
       method: 'PUT'
     });
     await refreshData();
@@ -538,6 +550,7 @@ export const CraftShieldProvider = ({ children }) => {
       completeOrder,
       cancelOrder,
       cancelOrderDueToDelay,
+      autoReleaseOrder,
 
       // Artisan state
       artisanStats,

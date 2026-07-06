@@ -193,86 +193,154 @@ def get_blockchain_connection() -> Connect:
 async def verify_design_onchain(design_hash: str) -> Optional[dict]:
     """
     Checks if a design hash is registered on-chain via a read-only view call.
-    Returns details if registered, otherwise None.
+    Falls back to a simulated database ledger if keys are missing or RPC fails.
     """
+    # 1. Try real on-chain check first (only if keys are configured)
+    if settings.VECHAIN_CONTRACT_ADDRESS and settings.VECHAIN_SPONSOR_KEY:
+        try:
+            connector = get_blockchain_connection()
+            contract = Contract({"abi": REGISTRY_ABI})
+            
+            # Convert hex string (e.g. 0xabc...) to bytes for bytes32 parameter
+            if design_hash.startswith("0x"):
+                hash_bytes = bytes.fromhex(design_hash[2:])
+            else:
+                hash_bytes = bytes.fromhex(design_hash)
+                
+            # Using a zero caller address for read-only emulation
+            zero_caller = "0x0000000000000000000000000000000000000000"
+            
+            response = connector.call(
+                caller=zero_caller,
+                contract=contract,
+                func_name="verifyDesign",
+                func_params=[hash_bytes],
+                to=settings.VECHAIN_CONTRACT_ADDRESS
+            )
+            
+            if not response.get("reverted") and "decoded" in response:
+                decoded = response["decoded"]
+                artisan_addr = decoded[0]
+                timestamp = decoded[1]
+                product_id = decoded[2]
+                image_url = decoded[3]
+                
+                if timestamp > 0:
+                    return {
+                        "artisan_address": artisan_addr,
+                        "registered_timestamp": timestamp,
+                        "product_id": product_id,
+                        "image_url": image_url,
+                        "simulated": False
+                    }
+        except Exception as e:
+            logger.warning(f"Real VeChain verification failed ({e}). Falling back to simulated ledger.")
+
+    # 2. Fallback to mock blockchain database collection
     try:
-        connector = get_blockchain_connection()
-        contract = Contract({"abi": REGISTRY_ABI})
-        
-        # Convert hex string (e.g. 0xabc...) to bytes for bytes32 parameter
-        if design_hash.startswith("0x"):
-            hash_bytes = bytes.fromhex(design_hash[2:])
-        else:
-            hash_bytes = bytes.fromhex(design_hash)
-            
-        # Using a zero caller address for read-only emulation
-        zero_caller = "0x0000000000000000000000000000000000000000"
-        
-        response = connector.call(
-            caller=zero_caller,
-            contract=contract,
-            func_name="verifyDesign",
-            func_params=[hash_bytes],
-            to=settings.VECHAIN_CONTRACT_ADDRESS
-        )
-        
-        if response.get("reverted") or "decoded" not in response:
-            return None
-            
-        decoded = response["decoded"]
-        artisan_addr = decoded[0]
-        timestamp = decoded[1]
-        product_id = decoded[2]
-        image_url = decoded[3]
-        
-        if timestamp == 0:
-            return None
-            
-        return {
-            "artisan_address": artisan_addr,
-            "registered_timestamp": timestamp,
-            "product_id": product_id,
-            "image_url": image_url
-        }
+        from app.database import get_collection
+        registry_coll = get_collection("blockchain_registry")
+        doc = await registry_coll.find_one({"design_hash": design_hash})
+        if doc:
+            return {
+                "artisan_address": doc.get("artisan_address"),
+                "registered_timestamp": int(doc.get("registered_timestamp")),
+                "product_id": doc.get("product_id"),
+                "image_url": doc.get("image_url"),
+                "tx_id": doc.get("tx_id"),
+                "block_number": doc.get("block_number"),
+                "simulated": True
+            }
     except Exception as e:
-        logger.error(f"Error checking design on-chain: {e}")
-        return None
+        logger.error(f"Simulated database ledger lookup failed: {e}")
+        
+    return None
 
 async def register_design_onchain(design_hash: str, artisan_id: str, product_id: str, image_url: str) -> dict:
     """
     Signs and broadcasts a fee-delegated transaction registering the design hash on VeChain.
-    The transaction caller is the artisan's deterministic wallet, and gas is sponsored by the platform.
+    Falls back to a simulated database ledger if keys are missing or RPC fails.
     """
     artisan_wallet = get_artisan_wallet(artisan_id)
-    sponsor_wallet = get_sponsor_wallet()
-    
-    if design_hash.startswith("0x"):
-        hash_bytes = bytes.fromhex(design_hash[2:])
-    else:
-        hash_bytes = bytes.fromhex(design_hash)
+    artisan_address = artisan_wallet.getAddress()
+
+    # 1. Try real on-chain registration first (only if keys are configured)
+    if settings.VECHAIN_CONTRACT_ADDRESS and settings.VECHAIN_SPONSOR_KEY:
+        try:
+            sponsor_wallet = get_sponsor_wallet()
+            if sponsor_wallet:
+                if design_hash.startswith("0x"):
+                    hash_bytes = bytes.fromhex(design_hash[2:])
+                else:
+                    hash_bytes = bytes.fromhex(design_hash)
+                    
+                connector = get_blockchain_connection()
+                contract = Contract({"abi": REGISTRY_ABI})
+                
+                tx_receipt = connector.transact(
+                    wallet=artisan_wallet,
+                    contract=contract,
+                    func_name="registerDesign",
+                    func_params=[hash_bytes, product_id, image_url],
+                    to=settings.VECHAIN_CONTRACT_ADDRESS,
+                    gas_payer=sponsor_wallet
+                )
+                
+                tx_id = tx_receipt.get("meta", {}).get("txID") or tx_receipt.get("id")
+                block_number = tx_receipt.get("meta", {}).get("blockNumber", 0)
+                
+                if tx_id:
+                    return {
+                        "tx_id": tx_id,
+                        "block_number": block_number,
+                        "artisan_address": artisan_address,
+                        "status": "success",
+                        "simulated": False
+                    }
+        except Exception as e:
+            logger.warning(f"Real VeChain transaction failed ({e}). Falling back to simulated ledger registration.")
+
+    # 2. Fallback to mock blockchain database collection
+    try:
+        from app.database import get_collection
+        import time
         
-    connector = get_blockchain_connection()
-    contract = Contract({"abi": REGISTRY_ABI})
-    
-    if not sponsor_wallet:
-        raise ValueError("Platform sponsor wallet is not configured. Setup VECHAIN_SPONSOR_KEY in env.")
+        registry_coll = get_collection("blockchain_registry")
+        existing = await registry_coll.find_one({"design_hash": design_hash})
+        if existing:
+            return {
+                "tx_id": existing.get("tx_id"),
+                "block_number": existing.get("block_number"),
+                "artisan_address": existing.get("artisan_address"),
+                "status": "success",
+                "simulated": True
+            }
+            
+        # Simulate tx_id and block_number
+        h = hashlib.sha256(f"{design_hash}-{time.time()}".encode("utf-8")).hexdigest()
+        simulated_tx_id = f"0x{h}"
+        simulated_block_number = 15302800 + int(time.time()) % 100000
+        registered_timestamp = int(time.time())
         
-    # Send transaction with VIP-191 fee delegation
-    tx_receipt = connector.transact(
-        wallet=artisan_wallet,
-        contract=contract,
-        func_name="registerDesign",
-        func_params=[hash_bytes, product_id, image_url],
-        to=settings.VECHAIN_CONTRACT_ADDRESS,
-        gas_payer=sponsor_wallet
-    )
-    
-    tx_id = tx_receipt.get("meta", {}).get("txID") or tx_receipt.get("id")
-    block_number = tx_receipt.get("meta", {}).get("blockNumber", 0)
-    
-    return {
-        "tx_id": tx_id,
-        "block_number": block_number,
-        "artisan_address": artisan_wallet.getAddress(),
-        "status": "success" if tx_id else "failed"
-    }
+        doc = {
+            "design_hash": design_hash,
+            "artisan_address": artisan_address,
+            "registered_timestamp": registered_timestamp,
+            "product_id": product_id,
+            "image_url": image_url,
+            "tx_id": simulated_tx_id,
+            "block_number": simulated_block_number,
+            "created_at": datetime.utcnow()
+        }
+        await registry_coll.insert_one(doc)
+        
+        return {
+            "tx_id": simulated_tx_id,
+            "block_number": simulated_block_number,
+            "artisan_address": artisan_address,
+            "status": "success",
+            "simulated": True
+        }
+    except Exception as e:
+        logger.error(f"Simulated database ledger registration failed: {e}")
+        raise ValueError(f"Blockchain registration failed: {e}")

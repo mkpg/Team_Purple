@@ -5,6 +5,8 @@ from app.database import get_collection
 from app.utils.security import get_password_hash, verify_password, create_access_token
 from app.utils.serializers import serialize_doc
 from app.schemas.auth import ClientRegister, ArtisanRegister, LoginRequest
+from app.services.trust_score import get_trust_profile_defaults
+from app.services.reliability_score import get_reliability_profile_defaults
 
 class AuthService:
     @staticmethod
@@ -43,13 +45,7 @@ class AuthService:
             "password_hash": get_password_hash(client_data.password),
             "role": "client",
             "is_active": True,
-            "trust_profile": {
-                "trust_score": 100.0,
-                "late_payments": 0,
-                "cancelled_orders": 0,
-                "completed_payments": 0,
-                "score_history": []
-            },
+            "trust_profile": get_trust_profile_defaults(),
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
@@ -72,11 +68,7 @@ class AuthService:
             "password_hash": get_password_hash(artisan_data.password),
             "role": "artisan",
             "is_active": True,
-            "reliability_profile": {
-                "reliability_score": 100.0,
-                "score_history": [],
-                "consecutive_ontime_orders": 0
-            },
+            "reliability_profile": get_reliability_profile_defaults(),
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }

@@ -7,8 +7,9 @@ import Layout from './components/Layout';
 import ArtisanDashboard from './pages/ArtisanDashboard';
 import ClientDashboard from './pages/ClientDashboard';
 import AdminPanel from './pages/AdminPanel';
-import Login from './pages/Login';
 import Profile from './pages/Profile';
+import Login from './pages/Login';
+import VerifyProof from './pages/VerifyProof';
 import './App.css';
 
 function MainApp() {
@@ -63,7 +64,10 @@ function App() {
   return (
     <CraftShieldProvider>
       <BrowserRouter>
-        <MainApp />
+        <Routes>
+          <Route path="/verify/:proofId" element={<VerifyProof />} />
+          <Route path="/*" element={<MainApp />} />
+        </Routes>
       </BrowserRouter>
       <Toaster 
         position="bottom-right"
