@@ -57,13 +57,15 @@ export default function Profile() {
   const getClientBadgeColor = (score) => {
     if (score >= 90.0) return 'text-teal bg-teal-light';
     if (score >= 70.0) return 'text-green bg-green-light';
+    if (score >= 50.0) return 'text-gold bg-gold-light';
     return 'text-red bg-red-light';
   };
 
   const getClientBadgeText = (score) => {
     if (score >= 90.0) return 'Highly Trustworthy';
     if (score >= 70.0) return 'Good Standing';
-    return 'Under Review';
+    if (score >= 50.0) return 'New / Building History';
+    return 'Caution';
   };
 
   // Extract score logs and details based on role
@@ -75,6 +77,8 @@ export default function Profile() {
   const artisanScore = isArtisan ? (user.reliability_profile?.reliability_score ?? 100.0) : 100.0;
   const artisanStreak = isArtisan ? (user.reliability_profile?.consecutive_ontime_orders ?? 0) : 0;
   const artisanHistory = isArtisan ? (user.reliability_profile?.score_history ?? []) : [];
+  const artisanPath = isArtisan ? (user.reliability_path_to_improvement || 'Complete more on-time orders to improve this score.') : '';
+  const artisanBadge = isArtisan ? (user.reliability_badge || getArtisanBadgeText(artisanScore)) : '';
 
   // Client stats
   const clientScore = isClient ? (user.trust_profile?.trust_score ?? 100.0) : 100.0;
@@ -82,6 +86,8 @@ export default function Profile() {
   const clientCancelledOrders = isClient ? (user.trust_profile?.cancelled_orders ?? 0) : 0;
   const clientCompletedPayments = isClient ? (user.trust_profile?.completed_payments ?? 0) : 0;
   const clientHistory = isClient ? (user.trust_profile?.score_history ?? []) : [];
+  const clientPath = isClient ? (user.trust_path_to_improvement || 'Complete more on-time orders to improve your standing.') : '';
+  const clientBadge = isClient ? (user.trust_badge || getClientBadgeText(clientScore)) : '';
 
   return (
     <div className="profile-container">
@@ -97,6 +103,12 @@ export default function Profile() {
             <div className="profile-badge-row">
               <span className="profile-role-badge">{user.role}</span>
               <span className="profile-status-badge">Active Account</span>
+              {isArtisan && (
+                <span className="profile-status-badge">{artisanBadge}</span>
+              )}
+              {isClient && (
+                <span className="profile-status-badge">{clientBadge}</span>
+              )}
             </div>
           </div>
         </div>
@@ -241,9 +253,12 @@ export default function Profile() {
                 
                 <div className="text-center mt-4">
                   <span className={`inline-block px-3 py-1.5 rounded-full text-sm font-bold ${isArtisan ? getArtisanBadgeColor(artisanScore) : getClientBadgeColor(clientScore)}`}>
-                    {isArtisan ? getArtisanBadgeText(artisanScore) : getClientBadgeText(clientScore)}
+                    {isArtisan ? artisanBadge : clientBadge}
                   </span>
                 </div>
+                <p className="body-sm text-muted text-center mt-3">
+                  {isArtisan ? artisanPath : clientPath}
+                </p>
               </div>
 
               {/* Point System Statistics */}
@@ -335,6 +350,13 @@ export default function Profile() {
                         </div>
                         <p className="body-md font-bold uppercase mt-1">{event.event_type.replace(/_/g, ' ')}</p>
                         <p className="body-sm text-muted mt-1">{event.note}</p>
+                        {event.delta < 0 && (
+                          <div className="mt-2">
+                            <span className="label-xs text-secondary">
+                              Think this isn&apos;t right? Contact support from the admin panel.
+                            </span>
+                          </div>
+                        )}
                         {event.order_id && (
                           <span className="label-xs text-secondary mt-2 block">
                             Order Reference ID: {event.order_id}

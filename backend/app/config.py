@@ -10,11 +10,11 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     DEBUG: bool = True
-
-    # VeChain Settings (Testnet Only)
+    PUBLIC_APP_URL: str = "http://localhost:5173"
+    TRANSACTION_PROOF_SECRET: str = "change-this-local-transaction-proof-secret"
     VECHAIN_NODE_URL: str = "https://testnet.vechain.org"
-    VECHAIN_CONTRACT_ADDRESS: str = "0x8849E48227b0Dbb6951Ff7b49466c1e5FF4bCF9a"
-    VECHAIN_SPONSOR_KEY: str = "0x0000000000000000000000000000000000000000000000000000000000000001"
+    VECHAIN_CONTRACT_ADDRESS: str = ""
+    VECHAIN_SPONSOR_KEY: str = ""
 
     # Find the env file path relative to this file
     model_config = SettingsConfigDict(

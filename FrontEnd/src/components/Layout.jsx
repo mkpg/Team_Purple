@@ -1,11 +1,13 @@
 import { useContext } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Gem, Shield, Hammer, User } from 'lucide-react';
 import { CraftShieldContext } from '../context/CraftShieldContext';
 import './Layout.css';
 
 export default function Layout() {
   const { user, logout, language, setLanguage, t } = useContext(CraftShieldContext);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const getRoleIcon = () => {
     if (!user) return <User size={20} />;
@@ -43,11 +45,10 @@ export default function Layout() {
         </div>
 
         <nav className="nav-menu">
-          <NavLink 
-            to="/" 
-            end
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            style={{ textDecoration: 'none' }}
+          <button
+            type="button"
+            className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}
+            onClick={() => navigate('/')}
           >
             {getRoleIcon()}
             <span className="label-md">
@@ -55,18 +56,15 @@ export default function Layout() {
               {user?.role === 'artisan' && t('artisanStudio')}
               {user?.role === 'admin' && t('adminPanel')}
             </span>
-          </NavLink>
-
-          <NavLink 
-            to="/profile" 
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            style={{ textDecoration: 'none' }}
+          </button>
+          <button
+            className={`nav-item ${location.pathname.endsWith('/profile') ? 'active' : ''}`}
+            onClick={() => navigate('profile')}
+            type="button"
           >
             <User size={20} />
-            <span className="label-md">
-              {language === 'ta' ? 'சுயவிவரம்' : language === 'te' ? 'ప్రొఫైల్' : language === 'kn' ? 'ಪ್ರೊಫೈಲ್' : language === 'ml' ? 'പ്രൊഫൈൽ' : 'Profile'}
-            </span>
-          </NavLink>
+            <span className="label-md">Profile</span>
+          </button>
         </nav>
 
         <div className="sidebar-footer">

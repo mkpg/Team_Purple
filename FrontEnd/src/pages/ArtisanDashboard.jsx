@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { Hammer, Clipboard, Plus, Shield, Package, Edit, Trash, IndianRupee, Calendar, Info, RefreshCw } from 'lucide-react';
+import { Hammer, Clipboard, Plus, Shield, Package, Edit, Trash, IndianRupee, Calendar, Info, RefreshCw, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CraftShieldContext } from '../context/CraftShieldContext';
@@ -17,9 +17,104 @@ const itemVariants = {
   visible: { y: 0, opacity: 1 }
 };
 
-function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, isVerified, formatCurrency }) {
-  const { t, language, API_BASE_URL, checkDesignSimilarity, registerDesign, getDesignProof, refreshData } = useContext(CraftShieldContext);
+function TransactionProofCard({ order, fetchProof }) {
+  const [proofData, setProofData] = useState(null);
+  const [loadingProof, setLoadingProof] = useState(false);
 
+  const loadProof = async () => {
+    setLoadingProof(true);
+    try {
+      const data = await fetchProof(order.id);
+      setProofData(data);
+    } catch (err) {
+      toast.error(err.message || 'Could not load verified transaction receipt');
+    } finally {
+      setLoadingProof(false);
+    }
+  };
+
+  const downloadProof = () => {
+    if (!proofData?.qr_image) return;
+    const link = document.createElement('a');
+    link.href = proofData.qr_image;
+    link.download = `craftshield-proof-${order.id}.png`;
+    link.click();
+  };
+
+  return (
+    <div className="card mt-4" style={{ padding: '16px', background: '#f8faf9' }}>
+      <div className="quote-header">
+        <div>
+          <h4 className="headline-sm">Verified Transaction Receipt</h4>
+          <p className="body-sm text-muted">The QR opens a server-side verification page. It proves this transaction record exists and has not been altered, not the physical material authenticity.</p>
+        </div>
+        {!proofData && (
+          <button className="btn btn-secondary btn-sm" onClick={loadProof} disabled={loadingProof}>
+            <FileText size={14} /> {loadingProof ? 'Loading...' : 'Show QR'}
+          </button>
+        )}
+      </div>
+      {proofData && (
+        <div className="mt-4" style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <img src={proofData.qr_image} alt="Verified transaction receipt QR" style={{ width: '132px', height: '132px', border: '1px solid var(--color-outline)', borderRadius: '8px' }} />
+          <div>
+            <div className="body-sm"><strong>Proof ID:</strong> {proofData.proof?.proof_id}</div>
+            <div className="body-sm"><strong>Verify URL:</strong> <a href={proofData.verify_url} target="_blank" rel="noreferrer">{proofData.verify_url}</a></div>
+            <button className="btn btn-primary btn-sm mt-2" onClick={downloadProof}>
+              <FileText size={14} /> Download Proof
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CatalogProductCard({ product, handleDeleteProduct, isVerified, formatCurrency }) {
+  const { t, language, API_BASE_URL, registerProductDesign, getProductDesignProof } = useContext(CraftShieldContext);
+  const [isAnchoring, setIsAnchoring] = useState(false);
+  const [showProofModal, setShowProofModal] = useState(false);
+  const [proofData, setProofData] = useState(null);
+  const [loadingProof, setLoadingProof] = useState(false);
+  const [showOverrideConfirm, setShowOverrideConfirm] = useState(false);
+  const [conflictWarnings, setConflictWarnings] = useState([]);
+
+  const handleAnchorDesign = async (e, forceOverride = false) => {
+    if (e) e.stopPropagation();
+    setIsAnchoring(true);
+    try {
+      const res = await registerProductDesign(product.id, forceOverride);
+      toast.success(res.message || 'Design anchored on-chain successfully!');
+      setShowOverrideConfirm(false);
+    } catch (err) {
+      try {
+        const parsed = JSON.parse(err.message);
+        if (parsed.warnings) {
+          setConflictWarnings(parsed.warnings);
+          setShowOverrideConfirm(true);
+          setIsAnchoring(false);
+          return;
+        }
+      } catch (_) {}
+      toast.error(err.message || 'Failed to anchor design proof');
+    } finally {
+      setIsAnchoring(false);
+    }
+  };
+
+  const handleViewProof = async (e) => {
+    if (e) e.stopPropagation();
+    setLoadingProof(true);
+    setShowProofModal(true);
+    try {
+      const data = await getProductDesignProof(product.id);
+      setProofData(data);
+    } catch (err) {
+      toast.error(err.message || 'Failed to load design proof details');
+    } finally {
+      setLoadingProof(false);
+    }
+  };
 
   const getImageUrl = (url) => {
     if (!url) return '';
@@ -31,62 +126,6 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
 
   const images = [product.image_url, ...(product.image_urls || [])].filter(Boolean).map(getImageUrl);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [verifying, setVerifying] = useState(false);
-  const [showProof, setShowProof] = useState(false);
-  const [proofData, setProofData] = useState(null);
-  const [showWarningModal, setShowWarningModal] = useState(false);
-  const [matches, setMatches] = useState([]);
-  const [checkingSimilarity, setCheckingSimilarity] = useState(false);
-
-  const handleAnchorClick = async (e) => {
-    e.stopPropagation();
-    setCheckingSimilarity(true);
-    try {
-      const simResult = await checkDesignSimilarity(product.id);
-      if (simResult.matches && simResult.matches.length > 0) {
-        setMatches(simResult.matches);
-        setShowWarningModal(true);
-      } else {
-        await executeRegistration(false);
-      }
-    } catch (err) {
-      toast.error(err.message || "Failed similarity scan");
-    } finally {
-      setCheckingSimilarity(false);
-    }
-  };
-
-  const executeRegistration = async (override = false) => {
-    setVerifying(true);
-    try {
-      await registerDesign(product.id, override);
-      toast.success("Design proof registered successfully on VeChain!");
-      setShowWarningModal(false);
-      await refreshData();
-    } catch (err) {
-      toast.error(err.message || "Failed to register design proof");
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  const handleShowProof = async (e) => {
-    e.stopPropagation();
-    if (proofData) {
-      setShowProof(true);
-      return;
-    }
-    setVerifying(true);
-    try {
-      const res = await getDesignProof(product.id);
-      setProofData(res);
-      setShowProof(true);
-    } catch (err) {
-      toast.error(err.message || "Failed to load blockchain proof");
-    } finally {
-      setVerifying(false);
-    }
-  };
 
   const nextImage = (e) => {
     e.stopPropagation();
@@ -186,194 +225,62 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
       <div className="card-content">
         <h4 className="headline-sm">{t(product.name)}</h4>
         <p className="body-sm text-muted line-clamp">{t(product.description)}</p>
+        {product.blockchain_registered ? (
+          <div 
+            onClick={handleViewProof}
+            style={{
+              background: '#e6f4ea',
+              color: '#137333',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              textAlign: 'center',
+              cursor: 'pointer',
+              marginBottom: '8px',
+              border: '1px solid #ceead6'
+            }}
+          >
+            🛡️ {loadingProof ? 'Loading Proof...' : 'Blockchain Verified'}
+          </div>
+        ) : isVerified ? (
+          <button
+            type="button"
+            className="btn btn-logout btn-sm"
+            onClick={(e) => handleAnchorDesign(e, false)}
+            disabled={isAnchoring}
+            style={{
+              background: 'var(--color-primary)',
+              color: 'white',
+              border: 'none',
+              padding: '6px',
+              fontSize: '11px',
+              width: '100%',
+              borderRadius: '4px',
+              marginBottom: '8px',
+              cursor: 'pointer'
+            }}
+          >
+            {isAnchoring ? 'Anchoring...' : 'Anchor Design Proof'}
+          </button>
+        ) : null}
         <div className="product-specifications">
           <span>{t('material')}: <strong>{t(product.material)}</strong></span>
           <span>{t('delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
         </div>
-        <div className="blockchain-provenance-section mt-4 pt-3 border-t">
-          {product.design_hash ? (
-            <div 
-              className="flex items-center gap-1.5 text-xs font-semibold text-teal bg-teal-light px-2.5 py-1.5 rounded-md border border-teal-variant cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={handleShowProof}
-              style={{ display: 'inline-flex', cursor: 'pointer', background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', border: '1px solid var(--color-teal)', padding: '4px 8px', borderRadius: '4px', gap: '4px' }}
-              title={t('verifyDesign')}
-            >
-              <Shield size={14} />
-              <span>{t('blockchainVerified')}</span>
-            </div>
-          ) : (
-            <button
-              className="btn btn-secondary btn-sm w-full flex items-center justify-center gap-2"
-              onClick={handleAnchorClick}
-              disabled={checkingSimilarity || verifying || !isVerified}
-              style={{ fontSize: '11px', padding: '6px', width: '100%' }}
-            >
-              {checkingSimilarity || verifying ? (
-                <>
-                  <RefreshCw size={12} className="animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <>
-                  <Shield size={12} />
-                  <span>Anchor Design Proof</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
-
         <div className="product-card-footer border-t pt-4 mt-4">
           <span className="display-sm font-bold text-secondary">{formatCurrency(product.price)}</span>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button 
-              className="btn btn-secondary btn-sm"
-              onClick={() => handleEditProduct(product)}
-              disabled={!isVerified}
-              style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            >
-              <Edit size={12} /> Edit
-            </button>
-            <button 
-              className="btn btn-logout btn-sm"
-              onClick={() => handleDeleteProduct(product.id)}
-              disabled={!isVerified}
-              style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            >
-              <Trash size={12} /> {t('delete')}
-            </button>
-          </div>
+          <button 
+            className="btn btn-logout btn-sm"
+            onClick={() => handleDeleteProduct(product.id)}
+            disabled={!isVerified}
+            style={{ padding: '6px 10px', fontSize: '11px' }}
+          >
+            <Trash size={12} /> {t('delete')}
+          </button>
         </div>
       </div>
-
-      {/* Proof Modal */}
-      <Modal 
-        isOpen={showProof} 
-        onClose={() => setShowProof(false)} 
-        title="Blockchain Registration Proof"
-      >
-        {proofData && (
-          <div className="space-y-4 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div className="bg-teal-50 p-4 rounded-lg border border-teal-200 text-teal-800" style={{ background: '#e6f4f1', padding: '12px', borderRadius: '8px', color: '#115e59', border: '1px solid #b2dfdb' }}>
-              <p className="font-semibold" style={{ fontWeight: 'bold' }}>{t('blockchainVerified')}</p>
-              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>{t('blockchainExplanation')}</p>
-            </div>
-            
-            <div className="space-y-2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Design SHA-256 Hash</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.design_hash}
-                </code>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Perceptual Hash (pHash)</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.phash}
-                </code>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Transaction ID (VeChain)</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.tx_id}
-                </code>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Block Number</span>
-                  <strong>{proofData.block_number}</strong>
-                </div>
-                <div>
-                  <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Registered At</span>
-                  <strong>{new Date(proofData.registered_at).toLocaleString()}</strong>
-                </div>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Artisan Wallet Address</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.artisan_address}
-                </code>
-              </div>
-            </div>
-
-            <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <a 
-                href={proofData.explorer_url} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="btn btn-primary text-xs"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px' }}
-              >
-                View on VeChain Explorer
-              </a>
-              <button className="btn btn-secondary text-xs" style={{ fontSize: '12px' }} onClick={() => setShowProof(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Warning Modal */}
-      <Modal 
-        isOpen={showWarningModal} 
-        onClose={() => setShowWarningModal(false)} 
-        title="Warning: High Similarity Detected"
-      >
-        <div className="space-y-4 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 text-amber-800" style={{ background: '#fff8e1', padding: '12px', borderRadius: '8px', color: '#b78103', border: '1px solid #ffe082', display: 'flex', gap: '8px' }}>
-            <Info size={20} style={{ flexShrink: 0 }} />
-            <div>
-              <p className="font-semibold" style={{ fontWeight: 'bold' }}>Potential Design Conflict</p>
-              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>
-                Our image similarity engine has detected existing designs that share a high level of visual resemblance with yours.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Similar Matches Found:</p>
-            <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-2 bg-gray-50" style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '8px', padding: '8px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {matches.map((match) => (
-                <div key={match.product_id} className="flex gap-3 bg-white p-2.5 rounded border items-center" style={{ display: 'flex', gap: '12px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #eee', alignItems: 'center' }}>
-                  <img 
-                    src={getImageUrl(match.image_url)} 
-                    alt={match.name} 
-                    className="w-12 h-12 object-cover rounded border" 
-                    style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd' }}
-                  />
-                  <div className="flex-1 min-w-0" style={{ flex: 1, minWidth: 0 }}>
-                    <p className="font-semibold text-xs truncate" style={{ fontWeight: 'bold', fontSize: '12px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.name}</p>
-                    <p className="text-[11px] text-muted truncate" style={{ fontSize: '11px', color: '#888', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Artisan: {match.artisan_business_name}</p>
-                    <p className="text-[11px] text-secondary font-medium" style={{ fontSize: '11px', color: 'var(--color-secondary)', fontWeight: '500', margin: 0 }}>Similarity: {(100 - (match.distance * 100 / 64)).toFixed(0)}% match</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-gray-100 p-3 rounded text-xs text-muted" style={{ background: '#f5f5f5', padding: '8px', borderRadius: '6px', fontSize: '11px', color: '#666' }}>
-            <strong>Note on Provenance:</strong> Proceeding with this anchoring will register your timestamped design bundle on the blockchain. 
-            However, this registration will be flagged for review to ensure there is no infringement of earlier works.
-          </div>
-
-          <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button className="btn btn-secondary text-xs" style={{ fontSize: '12px' }} onClick={() => setShowWarningModal(false)}>
-              Cancel
-            </button>
-            <button 
-              className="btn btn-logout text-xs bg-amber-600 hover:bg-amber-700 text-white" 
-              onClick={() => executeRegistration(true)}
-              disabled={verifying}
-              style={{ fontSize: '12px', background: '#d32f2f', color: '#fff' }}
-            >
-              {verifying ? "Registering..." : "Override & Register Anyway"}
-            </button>
-          </div>
-        </div>
-      </Modal>
     </div>
-
   );
 }
 
@@ -409,8 +316,10 @@ export default function ArtisanDashboard() {
     acceptCustomRequest,
     rejectCustomRequest,
     createQuotation,
+    requestOrderExtension,
     updateOrderStatus,
-    requestExtension,
+    getArtisanOrderProof,
+    checkImageSimilarity,
     uploadImages,
     t,
     language
@@ -426,8 +335,7 @@ export default function ArtisanDashboard() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressMessage, setUploadProgressMessage] = useState('');
-  const [uploadedImages, setUploadedImages] = useState([]);
-  const [editUploadedImages, setEditUploadedImages] = useState([]);
+  const [imageSimilarityStatus, setImageSimilarityStatus] = useState(null);
 
   const handleProductFilesChange = async (e) => {
     const files = e.target.files;
@@ -437,33 +345,42 @@ export default function ArtisanDashboard() {
     try {
       const urls = await uploadImages(files);
       if (urls && urls.length > 0) {
-        setUploadedImages(prev => [...prev, ...urls]);
+        const primary = urls[0];
+        setProductForm(prev => {
+          const secondary = urls.slice(1);
+          const currentUrls = prev.image_urls
+            ? prev.image_urls.split(',').map(u => u.trim()).filter(Boolean)
+            : [];
+          const updatedUrls = [...currentUrls, ...secondary];
+          return {
+            ...prev,
+            image_url: primary,
+            image_urls: updatedUrls.join(', ')
+          };
+        });
         setUploadProgressMessage(`Uploaded ${files.length} images successfully!`);
         toast.success(`Uploaded ${files.length} images.`);
+        setImageSimilarityStatus({ state: 'checking', message: 'Checking for similar designs...' });
+        try {
+          const check = await checkImageSimilarity(primary);
+          if (check.warnings && check.warnings.length > 0) {
+            setImageSimilarityStatus({
+              state: 'warning',
+              message: 'This image looks similar to an existing design. You may proceed if this is your own original work.',
+              warnings: check.warnings
+            });
+          } else {
+            setImageSimilarityStatus({ state: 'clear', message: 'No exact or close design match found for this uploaded image.' });
+          }
+        } catch (err) {
+          setImageSimilarityStatus({ state: 'blocked', message: err.message || 'This exact image matches an existing registered design.' });
+          toast.error(err.message || 'This exact image matches an existing registered design.');
+        }
       }
     } catch (err) {
       toast.error(err.message || 'Image upload failed');
       setUploadProgressMessage('Image upload failed.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleEditProductFilesChange = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setIsUploading(true);
-    setUploadProgressMessage(`Uploading ${files.length} images...`);
-    try {
-      const urls = await uploadImages(files);
-      if (urls && urls.length > 0) {
-        setEditUploadedImages(prev => [...prev, ...urls]);
-        setUploadProgressMessage(`Uploaded ${files.length} images successfully!`);
-        toast.success(`Uploaded ${files.length} images.`);
-      }
-    } catch (err) {
-      toast.error(err.message || 'Image upload failed');
-      setUploadProgressMessage('Image upload failed.');
+      setImageSimilarityStatus(null);
     } finally {
       setIsUploading(false);
     }
@@ -478,16 +395,7 @@ export default function ArtisanDashboard() {
     quoted_amount: '',
     advance_amount: '',
     estimated_delivery_date: '',
-    expected_completion_date: '',
     design_notes: ''
-  });
-
-  // Extension Modal State
-  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
-  const [selectedExtensionOrder, setSelectedExtensionOrder] = useState(null);
-  const [extensionForm, setExtensionForm] = useState({
-    extended_completion_date: '',
-    reason: ''
   });
 
   // Product Upload Modal State
@@ -498,21 +406,10 @@ export default function ArtisanDashboard() {
     category: '',
     price: '',
     material: '',
+    image_url: 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80',
+    image_urls: '',
     estimated_delivery_days: ''
   });
-
-  // Product Edit Modal State
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [editProductForm, setEditProductForm] = useState({
-    name: '',
-    description: '',
-    category: '',
-    price: '',
-    material: '',
-    estimated_delivery_days: ''
-  });
-
 
   // Profile Update Form State
   const [profileForm, setProfileForm] = useState(() => {
@@ -566,7 +463,6 @@ export default function ArtisanDashboard() {
       quoted_amount: request.budget,
       advance_amount: (request.budget * 0.3).toFixed(0), // 30% default advance recommended
       estimated_delivery_date: '',
-      expected_completion_date: '',
       design_notes: `Custom designed ${request.jewellery_type}. Cast in ${request.material_preference} with hand-set ${request.stone_preference || 'gems'}.`
     });
     setIsQuoteModalOpen(true);
@@ -574,9 +470,9 @@ export default function ArtisanDashboard() {
 
   const handleQuoteSubmit = async (e) => {
     e.preventDefault();
-    const { quoted_amount, advance_amount, estimated_delivery_date, expected_completion_date, design_notes } = quoteForm;
+    const { quoted_amount, advance_amount, estimated_delivery_date, design_notes } = quoteForm;
 
-    if (!quoted_amount || !advance_amount || !estimated_delivery_date || !expected_completion_date || !design_notes) {
+    if (!quoted_amount || !advance_amount || !estimated_delivery_date || !design_notes) {
       toast.error('All quote fields are required');
       return;
     }
@@ -591,8 +487,8 @@ export default function ArtisanDashboard() {
         custom_request_id: selectedRequest.id,
         quoted_amount: parseFloat(quoted_amount),
         advance_amount: parseFloat(advance_amount),
+        expected_completion_date: estimated_delivery_date,
         estimated_delivery_date,
-        expected_completion_date,
         design_notes
       });
       toast.success('Quotation dispatched to client!');
@@ -602,49 +498,6 @@ export default function ArtisanDashboard() {
     }
   };
 
-  const handleExtensionSubmit = async (e) => {
-    e.preventDefault();
-    const { extended_completion_date, reason } = extensionForm;
-
-    if (!extended_completion_date || !reason) {
-      toast.error('All extension fields are required');
-      return;
-    }
-
-    if (reason.trim().length < 10) {
-      toast.error('Reason must be at least 10 characters long');
-      return;
-    }
-
-    try {
-      await requestExtension(selectedExtensionOrder.id, extended_completion_date, reason);
-      toast.success('Deadline extension requested! Reliability score adjusted.');
-      setIsExtensionModalOpen(false);
-    } catch (err) {
-      toast.error(err.message || 'Failed to submit extension request');
-    }
-  };
-
-  const openExtensionModal = (order) => {
-    setSelectedExtensionOrder(order);
-    setExtensionForm({
-      extended_completion_date: '',
-      reason: ''
-    });
-    setIsExtensionModalOpen(true);
-  };
-
-  const canRequestExtension = (order) => {
-    if (order.extension_requested) return false;
-    const activeStatuses = ['Advance Payment Secured', 'Design in Progress', 'Production Started', 'Work in Progress', 'Quality Check'];
-    if (!activeStatuses.includes(order.status)) return false;
-    if (!order.expected_completion_date) return false;
-    
-    const deadline = new Date(order.expected_completion_date);
-    const now = new Date();
-    return now <= deadline;
-  };
-
   const handleCreateProduct = async (e) => {
     e.preventDefault();
     if (!isVerified) {
@@ -652,25 +505,27 @@ export default function ArtisanDashboard() {
       return;
     }
 
-    const { name, description, category, price, material, estimated_delivery_days } = productForm;
+    const { name, description, category, price, material, estimated_delivery_days, image_url, image_urls } = productForm;
     if (!name || !description || !category || !price || !material || !estimated_delivery_days) {
       toast.error('Please fill in all product details');
       return;
     }
+    if (imageSimilarityStatus?.state === 'blocked') {
+      toast.error('Resolve the exact image duplicate before publishing this product.');
+      return;
+    }
 
-    const primaryImage = uploadedImages.length > 0 ? uploadedImages[0] : 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80';
-    const secondaryImages = uploadedImages.length > 1 ? uploadedImages.slice(1) : [];
+    // Split additional images
+    const extraImages = image_urls
+      ? image_urls.split(',').map(url => url.trim()).filter(url => url.length > 0)
+      : [];
 
     try {
       await createProduct({
-        name,
-        description,
-        category,
+        ...productForm,
         price: parseFloat(price),
-        material,
-        image_url: primaryImage,
-        image_urls: secondaryImages,
-        estimated_delivery_days: parseInt(estimated_delivery_days)
+        estimated_delivery_days: parseInt(estimated_delivery_days),
+        image_urls: extraImages
       });
       toast.success('Product uploaded successfully!');
       setIsProductModalOpen(false);
@@ -680,55 +535,15 @@ export default function ArtisanDashboard() {
         category: '',
         price: '',
         material: '',
+        image_url: 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80',
+        image_urls: '',
         estimated_delivery_days: ''
       });
-      setUploadedImages([]);
+      setImageSimilarityStatus(null);
     } catch (err) {
       toast.error(err.message || 'Product upload failed');
     }
   };
-
-  const handleOpenEditModal = (product) => {
-    setSelectedProduct(product);
-    setEditProductForm({
-      name: product.name,
-      description: product.description,
-      category: product.category,
-      price: product.price,
-      material: product.material,
-      estimated_delivery_days: product.estimated_delivery_days
-    });
-    // Set editUploadedImages from product.image_url and product.image_urls
-    const urls = [product.image_url, ...(product.image_urls || [])].filter(Boolean);
-    setEditUploadedImages(urls);
-    setIsEditModalOpen(true);
-  };
-
-  const handleUpdateProductSubmit = async (e) => {
-    e.preventDefault();
-    const { name, description, category, price, material, estimated_delivery_days } = editProductForm;
-    
-    const primaryImage = editUploadedImages.length > 0 ? editUploadedImages[0] : 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80';
-    const secondaryImages = editUploadedImages.length > 1 ? editUploadedImages.slice(1) : [];
-
-    try {
-      await updateProduct(selectedProduct.id, {
-        name,
-        description,
-        category,
-        price: parseFloat(price),
-        material,
-        image_url: primaryImage,
-        image_urls: secondaryImages,
-        estimated_delivery_days: parseInt(estimated_delivery_days)
-      });
-      toast.success('Product updated successfully!');
-      setIsEditModalOpen(false);
-    } catch (err) {
-      toast.error(err.message || 'Product update failed');
-    }
-  };
-
 
   const handleDeleteProduct = async (productId) => {
     if (!window.confirm('Are you sure you want to delete this product from the catalog?')) return;
@@ -816,20 +631,6 @@ export default function ArtisanDashboard() {
             <span className="label-sm">Revenue Cleared</span>
             <h3 className="display-lg text-green">{formatCurrency(artisanStats.total_earned)}</h3>
           </div>
-          <div className="stat-card">
-            <span className="label-sm">Reliability Score</span>
-            <h3 className="display-lg text-primary">{(user?.reliability_profile?.reliability_score ?? 100.0).toFixed(1)}%</h3>
-            {user?.reliability_profile?.reliability_score !== undefined && (
-              <span className="label-sm text-muted" style={{ display: 'block', marginTop: '2px', fontSize: '11px' }}>
-                🛡️ Badge: <strong>{
-                  user.reliability_profile.reliability_score >= 95 ? 'Reliable' : 
-                  user.reliability_profile.reliability_score >= 85 ? 'Usually On Time' : 
-                  user.reliability_profile.reliability_score >= 70 ? 'Needs Improvement' : 
-                  'Critical Overdue Risk'
-                }</strong>
-              </span>
-            )}
-          </div>
         </div>
       )}
 
@@ -885,6 +686,11 @@ export default function ArtisanDashboard() {
                         <div>
                           <h4 className="headline-sm">{req.jewellery_type}</h4>
                           <span className="label-sm text-muted">From: {req.client_name}</span>
+                              <div className="mt-1">
+                                <span className={`badge ${req.client_trust_badge === 'Reliable' ? 'badge-green' : req.client_trust_badge === 'Good Standing' ? 'badge-teal' : req.client_trust_badge === 'New / Building History' ? 'badge-gold' : 'badge-red'}`}>
+                                  {req.client_trust_badge || t('trustBadge')}
+                                </span>
+                              </div>
                         </div>
                         <span className={`badge ${req.status === 'accepted' ? 'badge-teal' : req.status === 'rejected' ? 'badge-red' : 'badge-gold'}`}>
                           {req.status}
@@ -983,18 +789,9 @@ export default function ArtisanDashboard() {
                         <div className="order-title-block">
                           <h4 className="headline-sm">Jewellery Production Order</h4>
                           <span className="label-sm text-muted">Order: {order.id} • Client: {order.client_name}</span>
-                          <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
                             {order.expected_completion_date && (
-                              <span className="label-sm" style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>
-                                📅 Target Completion: <strong>{new Date(order.expected_completion_date).toLocaleDateString()}</strong>
-                              </span>
+                              <span className="label-sm text-muted">Due: <strong>{new Date(order.expected_completion_date).toLocaleDateString()}</strong></span>
                             )}
-                            {order.extended_completion_date && (
-                              <span className="label-sm" style={{ background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', padding: '2px 6px', borderRadius: '4px' }}>
-                                🔄 Extended to: <strong>{new Date(order.extended_completion_date).toLocaleDateString()}</strong>
-                              </span>
-                            )}
-                          </div>
                         </div>
                         <div className="order-price-tags">
                           <div className="price-tag">
@@ -1037,16 +834,6 @@ export default function ArtisanDashboard() {
                       {/* Status Transition Button triggers */}
                       <div className="order-actions-drawer border-t pt-4 mt-6">
                         <div className="actions-notes">
-                          {order.delay_status?.is_delayed && order.status !== 'cancelled_artisan_delay' && (
-                            <p className="body-sm text-red font-semibold" style={{ color: '#e53e3e', marginBottom: '6px' }}>
-                              ⚠️ Production Delayed: This order is overdue by {order.delay_status.delay_days} day(s).
-                            </p>
-                          )}
-                          {order.extension_requested && (
-                            <p className="body-sm text-teal font-semibold" style={{ color: 'var(--color-teal)', marginBottom: '6px' }}>
-                              ✔️ Proactive extension submitted to: {new Date(order.extended_completion_date).toLocaleDateString()} (Reason: {order.extension_reason})
-                            </p>
-                          )}
                           <span>Update production status to client:</span>
                         </div>
                         <div className="drawer-buttons">
@@ -1096,6 +883,27 @@ export default function ArtisanDashboard() {
                             <span className="body-sm text-amber font-semibold">Awaiting client final payment...</span>
                           )}
 
+                          {['Advance Payment Secured', 'Design in Progress', 'Production Started', 'Work in Progress', 'Quality Check'].includes(order.status) && (
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={async () => {
+                                const newDate = window.prompt('Enter new completion date (YYYY-MM-DD):');
+                                if (!newDate) return;
+                                const reason = window.prompt('Reason for extension request:');
+                                if (!reason) return;
+                                try {
+                                  await requestOrderExtension(order.id, newDate, reason);
+                                  toast.success('Extension request logged and shared with client.');
+                                } catch (err) {
+                                  toast.error(err.message || 'Could not request extension');
+                                }
+                              }}
+                              disabled={!isVerified}
+                            >
+                              Request Extension
+                            </button>
+                          )}
+
                           {order.status === 'Final Payment Pending' && (
                             <button 
                               className="btn btn-primary btn-sm"
@@ -1113,18 +921,10 @@ export default function ArtisanDashboard() {
                           {order.status === 'Completed' && (
                             <span className="body-sm text-green font-semibold">Funds Released. Settle complete.</span>
                           )}
-                          {canRequestExtension(order) && (
-                            <button 
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => openExtensionModal(order)}
-                              disabled={!isVerified}
-                              style={{ background: 'var(--color-teal)', color: '#fff', marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <Calendar size={14} /> Request Extension (-5%)
-                            </button>
-                          )}
                         </div>
+                        {order.status === 'Completed' && (
+                          <TransactionProofCard order={order} fetchProof={getArtisanOrderProof} />
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1157,7 +957,6 @@ export default function ArtisanDashboard() {
                       key={product.id}
                       product={product}
                       handleDeleteProduct={handleDeleteProduct}
-                      handleEditProduct={handleOpenEditModal}
                       isVerified={isVerified}
                       formatCurrency={formatCurrency}
                     />
@@ -1175,6 +974,37 @@ export default function ArtisanDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="profile-panel"
             >
+              <div className="card p-6 mb-4" style={{ maxWidth: '650px', margin: '0 auto 16px auto', padding: '24px' }}>
+                <h3 className="headline-md border-b pb-2 mb-4 text-primary">Reliability Profile</h3>
+                <div className="request-spec-grid">
+                  <div>
+                    <span className="label-sm text-muted">Badge</span>
+                    <strong>{user?.reliability_badge || 'Reliable'}</strong>
+                  </div>
+                  <div>
+                    <span className="label-sm text-muted">Path to improvement</span>
+                    <strong>{user?.reliability_path_to_improvement || 'Complete more on-time orders to improve this score.'}</strong>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <span className="label-sm text-muted">Current streak</span>
+                  <strong>{user?.reliability_profile?.consecutive_ontime_orders || 0}</strong>
+                </div>
+                <div className="mt-4">
+                  <span className="label-sm text-muted">Recent history</span>
+                  <div className="quotations-list mt-2">
+                    {(user?.reliability_profile?.score_history || []).slice(0, 3).map((entry, idx) => (
+                      <div key={`${entry.event_type}-${idx}`} className="card" style={{ padding: '12px', background: '#faf8f5' }}>
+                        <div className="quote-header">
+                          <strong>{entry.event_type}</strong>
+                          <span className={entry.delta < 0 ? 'text-red' : 'text-green'}>{entry.delta > 0 ? `+${entry.delta}` : entry.delta}</span>
+                        </div>
+                        <p className="body-sm text-muted mt-1">{entry.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <div className="card p-6" style={{ maxWidth: '650px', margin: '0 auto', padding: '24px' }}>
                 <h3 className="headline-md border-b pb-2 mb-4 text-primary">Studio Settings</h3>
                 <form onSubmit={handleUpdateProfile} className="auth-form">
@@ -1267,7 +1097,7 @@ export default function ArtisanDashboard() {
             </div>
 
             <div className="input-group">
-              <label className="input-label">Estimated Delivery Date (to client)</label>
+              <label className="input-label">Estimated Delivery Date</label>
               <input 
                 type="date" 
                 className="input-field" 
@@ -1275,18 +1105,6 @@ export default function ArtisanDashboard() {
                 onChange={(e) => setQuoteForm({ ...quoteForm, estimated_delivery_date: e.target.value })}
                 required 
               />
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Production Completion Deadline (Expected Completion Date)</label>
-              <input 
-                type="date" 
-                className="input-field" 
-                value={quoteForm.expected_completion_date || ''}
-                onChange={(e) => setQuoteForm({ ...quoteForm, expected_completion_date: e.target.value })}
-                required 
-              />
-              <span className="label-sm text-muted mt-1">This is the formal completion date. Overdue delay penalties start after this date.</span>
             </div>
 
             <div className="input-group">
@@ -1374,112 +1192,51 @@ export default function ArtisanDashboard() {
           </div>
 
           <div className="input-group">
-            <label className="input-label">Jewelry Design Images</label>
-            <div 
-              style={{
-                border: '2px dashed var(--color-outline)',
-                borderRadius: '8px',
-                padding: '20px',
-                textAlign: 'center',
-                background: 'rgba(255,255,255,0.05)',
-                cursor: 'pointer',
-                transition: 'border-color 0.2s'
-              }}
-              onClick={() => document.getElementById('product-image-file-input').click()}
-            >
-              <Plus size={24} style={{ margin: '0 auto 8px', color: 'var(--color-primary)' }} />
-              <p className="body-sm" style={{ margin: 0 }}>Click or drag images to upload</p>
-              <span className="label-sm text-muted">Multiple images allowed. The first image will be set as primary.</span>
-            </div>
+            <label className="input-label">Product Catalog Image URL</label>
             <input 
-              id="product-image-file-input"
+              type="text" 
+              className="input-field" 
+              placeholder="Primary image URL, or upload below"
+              value={productForm.image_url}
+              onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}
+              required 
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">{t('additionalImages')}</label>
+            <input 
+              type="text" 
+              className="input-field" 
+              placeholder={t('additionalImagesPlaceholder')}
+              value={productForm.image_urls || ''}
+              onChange={(e) => setProductForm({ ...productForm, image_urls: e.target.value })}
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Or Upload Jewelry Images (Multiple allowed)</label>
+            <input 
               type="file" 
-              style={{ display: 'none' }}
+              className="input-field" 
               accept="image/*"
               multiple 
               onChange={handleProductFilesChange}
             />
-            {isUploading && <span className="label-sm text-secondary animate-pulse" style={{ display: 'block', marginTop: '8px' }}>Uploading files...</span>}
-            {uploadProgressMessage && <span className="label-sm text-teal" style={{ display: 'block', marginTop: '8px' }}>{uploadProgressMessage}</span>}
-            
-            {/* Visual Preview Grid */}
-            {uploadedImages.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '10px', marginTop: '16px' }}>
-                {uploadedImages.map((img, idx) => (
-                  <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', border: '1px solid var(--color-outline)', borderRadius: '6px', overflow: 'hidden' }}>
-                    <img src={getImageUrl(img)} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <button 
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setUploadedImages(prev => prev.filter((_, i) => i !== idx));
-                      }}
-                      style={{
-                        position: 'absolute',
-                        top: '2px',
-                        right: '2px',
-                        background: 'rgba(220, 38, 38, 0.9)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '50%',
-                        width: '18px',
-                        height: '18px',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        lineHeight: 1
-                      }}
-                      title="Remove image"
-                    >
-                      ✕
-                    </button>
-                    {idx === 0 ? (
-                      <span style={{
-                        position: 'absolute',
-                        bottom: '0',
-                        left: '0',
-                        right: '0',
-                        background: 'var(--color-teal)',
-                        color: 'white',
-                        fontSize: '9px',
-                        textAlign: 'center',
-                        padding: '2px 0',
-                        fontWeight: 'bold'
-                      }}>
-                        Primary
-                      </span>
-                    ) : (
-                      <span 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Move this image to index 0
-                          setUploadedImages(prev => {
-                            const newImages = [...prev];
-                            const [selected] = newImages.splice(idx, 1);
-                            return [selected, ...newImages];
-                          });
-                        }}
-                        style={{
-                          position: 'absolute',
-                          bottom: '0',
-                          left: '0',
-                          right: '0',
-                          background: 'rgba(0,0,0,0.6)',
-                          color: 'white',
-                          fontSize: '8px',
-                          textAlign: 'center',
-                          padding: '2px 0',
-                          cursor: 'pointer'
-                        }}
-                        title="Click to set as primary"
-                      >
-                        Make Primary
-                      </span>
-                    )}
-                  </div>
-                ))}
+            {isUploading && <span className="label-sm text-secondary animate-pulse" style={{ display: 'block', marginTop: '4px' }}>Uploading files...</span>}
+            {uploadProgressMessage && <span className="label-sm text-teal" style={{ display: 'block', marginTop: '4px' }}>{uploadProgressMessage}</span>}
+            {imageSimilarityStatus && (
+              <div
+                className="body-sm mt-2"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--color-outline)',
+                  background: imageSimilarityStatus.state === 'blocked' ? '#fff5f5' : imageSimilarityStatus.state === 'warning' ? '#fffaf0' : '#f0fdf8',
+                  color: imageSimilarityStatus.state === 'blocked' ? '#c53030' : imageSimilarityStatus.state === 'warning' ? '#975a16' : '#276749'
+                }}
+              >
+                {imageSimilarityStatus.message}
               </div>
             )}
           </div>
@@ -1497,240 +1254,9 @@ export default function ArtisanDashboard() {
 
           <div className="modal-actions border-t pt-4">
             <button type="button" className="btn btn-secondary" onClick={() => setIsProductModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Upload to Catalog</button>
+            <button type="submit" className="btn btn-primary" disabled={imageSimilarityStatus?.state === 'blocked'}>Upload to Catalog</button>
           </div>
         </form>
-      </Modal>
-
-      {/* Catalog Edit Product Modal */}
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Edit Showroom Catalog Product">
-        {selectedProduct && (
-          <form onSubmit={handleUpdateProductSubmit} className="modal-form-scrollable">
-            <div className="input-group">
-              <label className="input-label">Jewelry Product Name</label>
-              <input 
-                type="text" 
-                className="input-field" 
-                value={editProductForm.name}
-                onChange={(e) => setEditProductForm({ ...editProductForm, name: e.target.value })}
-                required 
-              />
-            </div>
-
-            <div className="input-grid">
-              <div className="input-group">
-                <label className="input-label">Category</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  value={editProductForm.category}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, category: e.target.value })}
-                  required 
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Product Retail Price (INR)</label>
-                <input 
-                  type="number" 
-                  className="input-field" 
-                  value={editProductForm.price}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, price: e.target.value })}
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="input-grid">
-              <div className="input-group">
-                <label className="input-label">Material Specifications</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  value={editProductForm.material}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, material: e.target.value })}
-                  required 
-                />
-              </div>
-              <div className="input-group">
-                <label className="input-label">Estimated Delivery (Days)</label>
-                <input 
-                  type="number" 
-                  className="input-field" 
-                  value={editProductForm.estimated_delivery_days}
-                  onChange={(e) => setEditProductForm({ ...editProductForm, estimated_delivery_days: e.target.value })}
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Jewelry Design Images</label>
-              <div 
-                style={{
-                  border: '2px dashed var(--color-outline)',
-                  borderRadius: '8px',
-                  padding: '20px',
-                  textAlign: 'center',
-                  background: 'rgba(255,255,255,0.05)',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.2s'
-                }}
-                onClick={() => document.getElementById('edit-product-image-file-input').click()}
-              >
-                <Plus size={24} style={{ margin: '0 auto 8px', color: 'var(--color-primary)' }} />
-                <p className="body-sm" style={{ margin: 0 }}>Click or drag images to upload additional files</p>
-                <span className="label-sm text-muted">Multiple images allowed. The first image will be set as primary.</span>
-              </div>
-              <input 
-                id="edit-product-image-file-input"
-                type="file" 
-                style={{ display: 'none' }}
-                accept="image/*"
-                multiple 
-                onChange={handleEditProductFilesChange}
-              />
-              {isUploading && <span className="label-sm text-secondary animate-pulse" style={{ display: 'block', marginTop: '8px' }}>Uploading files...</span>}
-              {uploadProgressMessage && <span className="label-sm text-teal" style={{ display: 'block', marginTop: '8px' }}>{uploadProgressMessage}</span>}
-              
-              {/* Visual Preview Grid for Edit Mode */}
-              {editUploadedImages.length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '10px', marginTop: '16px' }}>
-                  {editUploadedImages.map((img, idx) => (
-                    <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', border: '1px solid var(--color-outline)', borderRadius: '6px', overflow: 'hidden' }}>
-                      <img src={getImageUrl(img)} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      <button 
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditUploadedImages(prev => prev.filter((_, i) => i !== idx));
-                        }}
-                        style={{
-                          position: 'absolute',
-                          top: '2px',
-                          right: '2px',
-                          background: 'rgba(220, 38, 38, 0.9)',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '50%',
-                          width: '18px',
-                          height: '18px',
-                          fontSize: '10px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          lineHeight: 1
-                        }}
-                        title="Remove image"
-                      >
-                        ✕
-                      </button>
-                      {idx === 0 ? (
-                        <span style={{
-                          position: 'absolute',
-                          bottom: '0',
-                          left: '0',
-                          right: '0',
-                          background: 'var(--color-teal)',
-                          color: 'white',
-                          fontSize: '9px',
-                          textAlign: 'center',
-                          padding: '2px 0',
-                          fontWeight: 'bold'
-                        }}>
-                          Primary
-                        </span>
-                      ) : (
-                        <span 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Move this image to index 0
-                            setEditUploadedImages(prev => {
-                              const newImages = [...prev];
-                              const [selected] = newImages.splice(idx, 1);
-                              return [selected, ...newImages];
-                            });
-                          }}
-                          style={{
-                            position: 'absolute',
-                            bottom: '0',
-                            left: '0',
-                            right: '0',
-                            background: 'rgba(0,0,0,0.6)',
-                            color: 'white',
-                            fontSize: '8px',
-                            textAlign: 'center',
-                            padding: '2px 0',
-                            cursor: 'pointer'
-                          }}
-                          title="Click to set as primary"
-                        >
-                          Make Primary
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Catalog Description</label>
-              <textarea 
-                className="input-field text-area-field" 
-                value={editProductForm.description}
-                onChange={(e) => setEditProductForm({ ...editProductForm, description: e.target.value })}
-                required 
-              />
-            </div>
-
-            <div className="modal-actions border-t pt-4">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Save Changes</button>
-            </div>
-          </form>
-        )}
-      </Modal>
-      {/* Deadline Extension Request Modal */}
-      <Modal isOpen={isExtensionModalOpen} onClose={() => setIsExtensionModalOpen(false)} title="Request Proactive Completion Extension">
-        {selectedExtensionOrder && (
-          <form onSubmit={handleExtensionSubmit} className="modal-form-scrollable">
-            <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 text-amber-800 mb-4" style={{ background: '#fff8e1', padding: '12px', borderRadius: '8px', color: '#b78103', border: '1px solid #ffe082' }}>
-              <p className="font-semibold" style={{ fontWeight: 'bold' }}>⚠️ Proactive Extension Penalty Rule:</p>
-              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>
-                Filing an extension request adjusts your reliability score by <strong>-5.0%</strong> immediately to offset client inconvenience. 
-                However, this prevents severe automated late penalties and client 100%-refund cancellation rights.
-              </p>
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">New Expected Completion Date</label>
-              <input 
-                type="date" 
-                className="input-field" 
-                value={extensionForm.extended_completion_date}
-                onChange={(e) => setExtensionForm({ ...extensionForm, extended_completion_date: e.target.value })}
-                required 
-              />
-            </div>
-
-            <div className="input-group">
-              <label className="input-label">Reason for Extension Request</label>
-              <textarea 
-                className="input-field text-area-field" 
-                placeholder="Describe material sourcing issues, design complexity adjustments, or other valid reasons (min 10 chars)..."
-                value={extensionForm.reason}
-                onChange={(e) => setExtensionForm({ ...extensionForm, reason: e.target.value })}
-                required 
-              />
-            </div>
-
-            <div className="modal-actions border-t pt-4">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsExtensionModalOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" style={{ background: 'var(--color-teal)' }}>Submit Extension</button>
-            </div>
-          </form>
-        )}
       </Modal>
     </motion.div>
   );

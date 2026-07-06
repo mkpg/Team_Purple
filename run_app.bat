@@ -1,15 +1,16 @@
 @echo off
 title CraftShield Runner
+set "ROOT_DIR=%~dp0"
 echo ===================================================
 echo             Launching CraftShield App
 echo ===================================================
 echo.
 
 echo [1/2] Starting FastAPI Backend Server...
-start "CraftShield Backend" cmd /k "cd BackEnd && call venv\Scripts\activate && uvicorn app.main:app --reload"
+start "CraftShield Backend" cmd /k "cd /d ""%ROOT_DIR%backend"" && call venv\Scripts\activate.bat && uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
 
 echo [2/2] Starting React-Vite Frontend Dev Server...
-start "CraftShield Frontend" cmd /k "cd FrontEnd && npm run dev"
+start "CraftShield Frontend" cmd /k "cd /d ""%ROOT_DIR%FrontEnd"" && npm run dev"
 
 echo.
 echo ===================================================

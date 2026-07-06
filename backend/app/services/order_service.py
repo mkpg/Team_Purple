@@ -1,8 +1,11 @@
 from datetime import datetime
 from fastapi import HTTPException, status
 from bson import ObjectId
-from app.database import get_collection
+from app.database import get_collection, get_database
 from app.utils.serializers import serialize_doc
+from app.services.trust_score import apply_trust_event
+from app.services.reliability_score import apply_reliability_event
+from app.services.transaction_proof import create_transaction_proof
 
 class OrderService:
     @staticmethod
@@ -61,12 +64,13 @@ class OrderService:
             "total_amount": total_amount,
             "advance_amount": advance_amount,
             "final_amount": final_amount,
-            "status": "Advance Payment Pending",
-            "expected_completion_date": quotation.get("expected_completion_date"),
-            "delay_penalty_applied": False,
-            "extension_requested": False,
+            "expected_completion_date": quotation.get("expected_completion_date") or quotation.get("estimated_delivery_date"),
             "extended_completion_date": None,
-            "extension_reason": None,
+            "delay_penalty_applied": False,
+            "delay_status": None,
+            "delay_discount_percent": None,
+            "delay_resolution": None,
+            "status": "Advance Payment Pending",
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
@@ -174,67 +178,35 @@ class OrderService:
                 )
 
         # Perform update
+        update_fields = {"status": new_status, "updated_at": datetime.utcnow()}
+        if new_status == "Completed":
+            update_fields["completed_at"] = update_fields["updated_at"]
+
         await orders_coll.update_one(
             {"_id": order_oid},
-            {"$set": {"status": new_status, "updated_at": datetime.utcnow()}}
+            {"$set": update_fields}
         )
         order["status"] = new_status
-        order["updated_at"] = datetime.utcnow()
-        
-        # Apply reliability scoring when order is completed
-        if new_status == "Completed":
-            target_date = order.get("extended_completion_date") or order.get("expected_completion_date")
-            if target_date:
-                from datetime import date
-                now = datetime.utcnow()
-                if isinstance(target_date, date) and not isinstance(target_date, datetime):
-                    target_date = datetime.combine(target_date, datetime.min.time())
-                
-                delay_days = (now - target_date).days
-                db = orders_coll.database
-                from app.services.reliability_score import apply_reliability_event
-                
-                if delay_days <= 0:
-                    await apply_reliability_event(
-                        db=db,
-                        artisan_id=ObjectId(order["artisan_id"]),
-                        event_type="ON_TIME_COMPLETION",
-                        order_id=order["_id"],
-                        note="Order completed on or before expected completion date."
-                    )
-                elif 1 <= delay_days <= 3:
-                    await apply_reliability_event(
-                        db=db,
-                        artisan_id=ObjectId(order["artisan_id"]),
-                        event_type="GRACE_WINDOW_DELAY",
-                        order_id=order["_id"],
-                        note=f"Order completed late within grace window ({delay_days} days late)."
-                    )
-                else:
-                    # Significant or severe delay
-                    if not order.get("delay_penalty_applied"):
-                        event_type = "SEVERE_DELAY" if delay_days >= 10 else "SIGNIFICANT_DELAY"
-                        await apply_reliability_event(
-                            db=db,
-                            artisan_id=ObjectId(order["artisan_id"]),
-                            event_type=event_type,
-                            order_id=order["_id"],
-                            note=f"Order completed late with {delay_days} days delay."
-                        )
-                        await orders_coll.update_one(
-                            {"_id": order["_id"]},
-                            {"$set": {"delay_penalty_applied": True}}
-                        )
-            
-            # Apply client trust score update for completed order
-            from app.services.reliability_score import apply_client_trust_event
-            await apply_client_trust_event(
-                db=db,
-                client_id=ObjectId(order["client_id"]),
+        order.update(update_fields)
+
+        if new_status == "Completed" and role == "client":
+            completion_deadline = order.get("extended_completion_date") or order.get("expected_completion_date")
+            if completion_deadline and datetime.utcnow() <= completion_deadline:
+                await apply_reliability_event(
+                    db=get_database(),
+                    artisan_id=order["artisan_id"],
+                    event_type="ON_TIME_COMPLETION",
+                    order_id=order_oid,
+                    note="Order completed on or before the deadline."
+                )
+            await apply_trust_event(
+                db=get_database(),
+                client_id=order["client_id"],
                 event_type="ORDER_COMPLETED",
-                order_id=order["_id"],
-                note="Order successfully completed"
+                order_id=order_oid,
+                note="Client confirmed successful delivery."
             )
+            await create_transaction_proof(get_database(), order_id_str)
         
         return serialize_doc(order)
 
@@ -292,6 +264,22 @@ class OrderService:
                 "updated_at": datetime.utcnow()
             }
             await payments_coll.insert_one(refund_doc)
+
+            await apply_trust_event(
+                db=get_database(),
+                client_id=ObjectId(client_id_str),
+                event_type="ORDER_CANCELLED_AFTER_ADVANCE",
+                order_id=order_oid,
+                note="Client cancelled after advance payment was secured."
+            )
+        else:
+            await apply_trust_event(
+                db=get_database(),
+                client_id=ObjectId(client_id_str),
+                event_type="ORDER_CANCELLED_24H",
+                order_id=order_oid,
+                note="Client cancelled before advance payment was secured."
+            )
             
         # Cancel order
         await orders_coll.update_one(
@@ -303,122 +291,8 @@ class OrderService:
             }}
         )
         
-        # Apply client trust score penalty for cancellation
-        from app.services.reliability_score import apply_client_trust_event
-        await apply_client_trust_event(
-            db=orders_coll.database,
-            client_id=ObjectId(client_id_str),
-            event_type="ORDER_CANCELLED_24H",
-            order_id=order_oid,
-            note="Order cancelled by client within 24 hours of booking"
-        )
-        
         order["status"] = "Cancelled"
         order["refunded_amount"] = repaid_amount
-        order["updated_at"] = datetime.utcnow()
-        
-        return serialize_doc(order)
-
-    @staticmethod
-    async def cancel_order_by_client_artisan_delay(order_id_str: str, client_id_str: str) -> dict:
-        """Allow client to cancel the order with full refund if significantly delayed by artisan."""
-        orders_coll = get_collection("orders")
-        payments_coll = get_collection("payments")
-        
-        try:
-            order_oid = ObjectId(order_id_str)
-        except Exception:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid order ID format")
-            
-        order = await orders_coll.find_one({"_id": order_oid})
-        if not order:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
-            
-        if str(order["client_id"]) != client_id_str:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this order")
-            
-        if order["status"] in {"Cancelled", "cancelled_artisan_delay"}:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order is already cancelled")
-            
-        if order["status"] in {"Completed", "Delivered", "Disputed"}:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Order cannot be cancelled in status: {order['status']}")
-            
-        # Check if significantly delayed (>= 4 days past expected date) and no extension requested
-        target_date = order.get("extended_completion_date") or order.get("expected_completion_date")
-        if not target_date:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Order does not have a completion deadline")
-            
-        from datetime import date
-        if isinstance(target_date, date) and not isinstance(target_date, datetime):
-            target_date = datetime.combine(target_date, datetime.min.time())
-            
-        now = datetime.utcnow()
-        delay_days = (now - target_date).days
-        
-        if delay_days < 4:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Order is only {delay_days} days past deadline. Only orders delayed by 4+ days can be cancelled under this rule."
-            )
-            
-        if order.get("extension_requested"):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Artisan has requested an extension. You cannot cancel under the delay rule while an extension request is active/approved."
-            )
-            
-        # Check if advance payment has been secured
-        advance_payment = await payments_coll.find_one({
-            "order_id": order_oid,
-            "payment_type": "advance",
-            "status": "secured"
-        })
-        
-        refunded_amount = 0.0
-        if advance_payment and order["advance_amount"] > 0:
-            refunded_amount = order["advance_amount"]  # 100% refund
-            refund_doc = {
-                "order_id": order_oid,
-                "client_id": ObjectId(client_id_str),
-                "artisan_id": order["artisan_id"],
-                "payment_type": "refund",
-                "amount": refunded_amount,
-                "status": "repaid",
-                "transaction_reference": f"REFUND-DELAY-{order_id_str[:8].upper()}-{int(datetime.utcnow().timestamp())}",
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-                "note": "Full refund due to severe artisan production delay."
-            }
-            await payments_coll.insert_one(refund_doc)
-            
-        # Cancel order with new status
-        await orders_coll.update_one(
-            {"_id": order_oid},
-            {"$set": {
-                "status": "cancelled_artisan_delay", 
-                "refunded_amount": refunded_amount,
-                "updated_at": datetime.utcnow()
-            }}
-        )
-        
-        # Apply reliability penalty to artisan (SIGNIFICANT_DELAY or SEVERE_DELAY)
-        if not order.get("delay_penalty_applied"):
-            penalty_type = "SEVERE_DELAY" if delay_days >= 10 else "SIGNIFICANT_DELAY"
-            from app.services.reliability_score import apply_reliability_event
-            await apply_reliability_event(
-                db=orders_coll.database,
-                artisan_id=ObjectId(order["artisan_id"]),
-                event_type=penalty_type,
-                order_id=order_oid,
-                note=f"Order cancelled by client due to artisan delay of {delay_days} days."
-            )
-            await orders_coll.update_one(
-                {"_id": order_oid},
-                {"$set": {"delay_penalty_applied": True}}
-            )
-            
-        order["status"] = "cancelled_artisan_delay"
-        order["refunded_amount"] = refunded_amount
         order["updated_at"] = datetime.utcnow()
         
         return serialize_doc(order)

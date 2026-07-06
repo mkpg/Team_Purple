@@ -15,6 +15,7 @@ from app.routes.auth import router as auth_router
 from app.routes.client import router as client_router
 from app.routes.artisan import router as artisan_router
 from app.routes.admin import router as admin_router
+from app.routes.verification import router as verification_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -70,6 +71,7 @@ app.include_router(auth_router)
 app.include_router(client_router)
 app.include_router(artisan_router)
 app.include_router(admin_router)
+app.include_router(verification_router)
 
 # Multi-Image File Uploading Route
 @app.post("/api/upload", tags=["Upload"])

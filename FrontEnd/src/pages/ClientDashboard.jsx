@@ -1,6 +1,5 @@
 import React, { useContext, useState } from 'react';
-import { Package, Truck, CheckCircle2, IndianRupee, Hammer, Send, Eye, FileText, ShoppingBag, CreditCard, XCircle, Shield, RefreshCw } from 'lucide-react';
-
+import { Package, Truck, CheckCircle2, IndianRupee, Hammer, Send, Eye, FileText, ShoppingBag, CreditCard, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CraftShieldContext } from '../context/CraftShieldContext';
@@ -18,9 +17,61 @@ const itemVariants = {
   visible: { y: 0, opacity: 1 }
 };
 
-function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen }) {
-  const { t, language, API_BASE_URL, getDesignProof } = useContext(CraftShieldContext);
+function TransactionProofCard({ order, fetchProof }) {
+  const [proofData, setProofData] = useState(null);
+  const [loadingProof, setLoadingProof] = useState(false);
 
+  const loadProof = async () => {
+    setLoadingProof(true);
+    try {
+      const data = await fetchProof(order.id);
+      setProofData(data);
+    } catch (err) {
+      toast.error(err.message || 'Could not load verified transaction receipt');
+    } finally {
+      setLoadingProof(false);
+    }
+  };
+
+  const downloadProof = () => {
+    if (!proofData?.qr_image) return;
+    const link = document.createElement('a');
+    link.href = proofData.qr_image;
+    link.download = `craftshield-proof-${order.id}.png`;
+    link.click();
+  };
+
+  return (
+    <div className="card mt-4" style={{ padding: '16px', background: '#f8faf9' }}>
+      <div className="quote-header">
+        <div>
+          <h4 className="headline-sm">Verified Transaction Receipt</h4>
+          <p className="body-sm text-muted">The QR opens a server-side verification page. It proves this transaction record exists and has not been altered, not the physical material authenticity.</p>
+        </div>
+        {!proofData && (
+          <button className="btn btn-secondary btn-sm" onClick={loadProof} disabled={loadingProof}>
+            <FileText size={14} /> {loadingProof ? 'Loading...' : 'Show QR'}
+          </button>
+        )}
+      </div>
+      {proofData && (
+        <div className="mt-4" style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <img src={proofData.qr_image} alt="Verified transaction receipt QR" style={{ width: '132px', height: '132px', border: '1px solid var(--color-outline)', borderRadius: '8px' }} />
+          <div>
+            <div className="body-sm"><strong>Proof ID:</strong> {proofData.proof?.proof_id}</div>
+            <div className="body-sm"><strong>Verify URL:</strong> <a href={proofData.verify_url} target="_blank" rel="noreferrer">{proofData.verify_url}</a></div>
+            <button className="btn btn-primary btn-sm mt-2" onClick={downloadProof}>
+              <FileText size={14} /> Download Proof
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen, onDeleteSuccess }) {
+  const { t, language, API_BASE_URL, user, deleteProduct } = useContext(CraftShieldContext);
 
   const getImageUrl = (url) => {
     if (!url) return '';
@@ -32,27 +83,6 @@ function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIs
 
   const images = [product.image_url, ...(product.image_urls || [])].filter(Boolean).map(getImageUrl);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [verifying, setVerifying] = useState(false);
-  const [showProof, setShowProof] = useState(false);
-  const [proofData, setProofData] = useState(null);
-
-  const handleShowProof = async (e) => {
-    e.stopPropagation();
-    if (proofData) {
-      setShowProof(true);
-      return;
-    }
-    setVerifying(true);
-    try {
-      const res = await getDesignProof(product.id);
-      setProofData(res);
-      setShowProof(true);
-    } catch (err) {
-      toast.error(err.message || "Failed to load blockchain proof");
-    } finally {
-      setVerifying(false);
-    }
-  };
 
   const nextImage = (e) => {
     e.stopPropagation();
@@ -152,34 +182,39 @@ function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIs
       <div className="card-content">
         <h4 className="headline-sm">{t(product.name)}</h4>
         <p className="body-sm text-muted line-clamp">{t(product.description)}</p>
+        {product.artisan_reliability_badge && (
+          <div className="mt-2">
+            <span className={`badge ${product.artisan_reliability_badge === 'Reliable' ? 'badge-green' : product.artisan_reliability_badge === 'Usually On Time' ? 'badge-teal' : product.artisan_reliability_badge === 'New / Building History' ? 'badge-gold' : 'badge-red'}`}>
+              {product.artisan_reliability_badge}
+            </span>
+          </div>
+        )}
         <div className="product-specifications">
           <span className="spec-label">{t('material')}: <strong>{t(product.material)}</strong></span>
           <span className="spec-label">{t('delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
         </div>
-        <div style={{ marginTop: '8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span className="text-muted">By: <strong>{product.artisan_business_name}</strong></span>
-          {product.artisan_reliability_badge && (
-            <span 
-              style={{
-                background: product.artisan_reliability_badge === 'Reliable' ? '#e6f4ea' : product.artisan_reliability_badge === 'Usually On Time' ? '#e8f0fe' : product.artisan_reliability_badge === 'New / Building History' ? '#fef7e0' : '#fce8e6', 
-                color: product.artisan_reliability_badge === 'Reliable' ? '#137333' : product.artisan_reliability_badge === 'Usually On Time' ? '#1a73e8' : product.artisan_reliability_badge === 'New / Building History' ? '#b06000' : '#c5221f',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontWeight: '600',
-                fontSize: '10px',
-                border: '1px solid currentColor',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '2px'
+        <div className="product-card-footer border-t pt-4 mt-4">
+          <span className="display-sm font-bold text-secondary">{formatCurrency(product.price)}</span>
+          {user?.role === 'admin' ? (
+            <button 
+              className="btn btn-logout btn-sm"
+              style={{ backgroundColor: '#ba1a1a', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (window.confirm(`Are you sure you want to delete "${product.name}"? This action is permanent.`)) {
+                  try {
+                    await deleteProduct(product.id || product._id);
+                    toast.success("Product deleted successfully!");
+                    if (onDeleteSuccess) onDeleteSuccess();
+                  } catch (err) {
+                    toast.error(err.message || "Failed to delete product");
+                  }
+                }
               }}
             >
-              🛡️ {product.artisan_reliability_badge}
-            </span>
-          )}
-        </div>
-        <div className="product-card-footer border-t pt-4 mt-4" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-            <span className="display-sm font-bold text-secondary">{formatCurrency(product.price)}</span>
+              Delete Post
+            </button>
+          ) : (
             <button 
               className="btn btn-secondary btn-sm"
               onClick={() => {
@@ -196,95 +231,10 @@ function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIs
             >
               {t('requestCustomMock')}
             </button>
-          </div>
-
-          {product.design_hash && (
-            <div 
-              className="flex items-center gap-1.5 text-xs font-semibold text-teal bg-teal-light px-2.5 py-1 rounded border border-teal-variant cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={handleShowProof}
-              style={{ display: 'inline-flex', cursor: 'pointer', background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', border: '1px solid var(--color-teal)', padding: '4px 8px', borderRadius: '4px', gap: '4px', alignSelf: 'flex-start' }}
-              title={t('verifyDesign')}
-            >
-              {verifying ? (
-                <RefreshCw size={12} className="animate-spin" />
-              ) : (
-                <Shield size={12} />
-              )}
-              <span>{t('blockchainVerified')}</span>
-            </div>
           )}
         </div>
       </div>
-
-      {/* Proof Modal */}
-      <Modal 
-        isOpen={showProof} 
-        onClose={() => setShowProof(false)} 
-        title="Blockchain Registration Proof"
-      >
-        {proofData && (
-          <div className="space-y-4 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div className="bg-teal-50 p-4 rounded-lg border border-teal-200 text-teal-800" style={{ background: '#e6f4f1', padding: '12px', borderRadius: '8px', color: '#115e59', border: '1px solid #b2dfdb' }}>
-              <p className="font-semibold" style={{ fontWeight: 'bold' }}>{t('blockchainVerified')}</p>
-              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>{t('blockchainExplanation')}</p>
-            </div>
-            
-            <div className="space-y-2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Design SHA-256 Hash</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.design_hash}
-                </code>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Perceptual Hash (pHash)</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.phash}
-                </code>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Transaction ID (VeChain)</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.tx_id}
-                </code>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Block Number</span>
-                  <strong>{proofData.block_number}</strong>
-                </div>
-                <div>
-                  <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Registered At</span>
-                  <strong>{new Date(proofData.registered_at).toLocaleString()}</strong>
-                </div>
-              </div>
-              <div>
-                <span className="text-muted block text-xs" style={{ fontSize: '11px', color: '#666' }}>Artisan Wallet Address</span>
-                <code className="bg-gray-100 p-1.5 rounded block text-xs break-all font-mono" style={{ background: '#f5f5f5', padding: '6px', borderRadius: '4px', fontSize: '11px', display: 'block', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                  {proofData.artisan_address}
-                </code>
-              </div>
-            </div>
-
-            <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <a 
-                href={proofData.explorer_url} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="btn btn-primary text-xs"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', textDecoration: 'none', fontSize: '12px' }}
-              >
-                View on VeChain Explorer
-              </a>
-              <button className="btn btn-secondary text-xs" style={{ fontSize: '12px' }} onClick={() => setShowProof(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
-
   );
 }
 
@@ -314,6 +264,7 @@ export default function ClientDashboard() {
     clientQuotations,
     clientOrders,
     clientPayments,
+    clientTrustScore,
     createCustomRequest,
     acceptQuotation,
     rejectQuotation,
@@ -321,7 +272,8 @@ export default function ClientDashboard() {
     payFinal,
     completeOrder,
     cancelOrder,
-    cancelOrderDueToDelay,
+    resolveOrderDelay,
+    getClientOrderProof,
     uploadImages,
     t,
     language
@@ -385,6 +337,9 @@ export default function ClientDashboard() {
   // Tab count indicators
   const activeOrdersCount = clientOrders.filter(o => !['Completed', 'Cancelled'].includes(o.status)).length;
   const pendingQuotesCount = clientQuotations.filter(q => q.status === 'sent').length;
+  const trustProfile = clientTrustScore?.trust_profile || null;
+  const trustBadge = clientTrustScore?.trust_badge || 'Reliable';
+  const trustHistory = trustProfile?.score_history || [];
 
   const handleCustomRequestSubmit = async (e) => {
     e.preventDefault();
@@ -455,6 +410,15 @@ export default function ClientDashboard() {
     }
   };
 
+  const handleResolveDelay = async (orderId, choice) => {
+    try {
+      await resolveOrderDelay(orderId, choice);
+      toast.success(choice === 'stay_with_discount' ? 'Delay discount applied.' : 'Order cancelled and refund issued.');
+    } catch (error) {
+      toast.error(error.message || 'Unable to resolve delay');
+    }
+  };
+
   const openPaymentModal = (orderId, type, amount) => {
     setPaymentTarget({ orderId, type, amount });
     setTxRef(`TX-${type.toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`);
@@ -508,18 +472,6 @@ export default function ClientDashboard() {
       toast.success(t('cancelSuccess'));
     } catch (err) {
       toast.error(err.response?.data?.detail || err.message || t('cancelError'));
-    }
-  };
-
-  const handleCancelOrderDueToDelay = async (orderId) => {
-    if (!window.confirm("Are you sure you want to cancel this order and request a 100% refund due to severe artisan delay?")) {
-      return;
-    }
-    try {
-      await cancelOrderDueToDelay(orderId);
-      toast.success("Order cancelled successfully under the delay rule. 100% advance deposit refunded!");
-    } catch (err) {
-      toast.error(err.message || "Failed to cancel order");
     }
   };
 
@@ -582,6 +534,46 @@ export default function ClientDashboard() {
             <span className="label-sm">{t('totalSpent')}</span>
             <h3 className="display-lg text-green">{formatCurrency(clientStats.total_spent)}</h3>
           </div>
+        </div>
+      )}
+
+      {clientTrustScore && (
+        <div className="card" style={{ marginBottom: '20px' }}>
+          <div className="request-card-header">
+            <div>
+              <h3 className="headline-sm">{t('trustScore')}</h3>
+              <span className="label-sm text-muted">{t('trustBadgeOverview')}</span>
+            </div>
+            <span className={`badge ${trustBadge === 'Reliable' ? 'badge-green' : trustBadge === 'Good Standing' ? 'badge-teal' : trustBadge === 'New / Building History' ? 'badge-gold' : 'badge-red'}`}>
+              {trustBadge}
+            </span>
+          </div>
+          <div className="request-spec-grid mt-4">
+            <div>
+              <span className="label-sm text-muted">{t('pathToImprovement')}</span>
+              <strong>{clientTrustScore.path_to_improvement}</strong>
+            </div>
+            <div>
+              <span className="label-sm text-muted">{t('trustOrdersCompleted')}</span>
+              <strong>{trustProfile?.consecutive_good_orders || 0}</strong>
+            </div>
+          </div>
+          {trustHistory.length > 0 && (
+            <div className="mt-4">
+              <span className="label-sm text-muted">{t('trustHistory')}</span>
+              <div className="quotations-list mt-2">
+                {trustHistory.slice(0, 3).map((entry, idx) => (
+                  <div key={`${entry.event_type}-${idx}`} className="card" style={{ padding: '12px', background: '#faf8f5' }}>
+                    <div className="quote-header">
+                      <strong>{entry.event_type}</strong>
+                      <span className={entry.delta < 0 ? 'text-red' : 'text-green'}>{entry.delta > 0 ? `+${entry.delta}` : entry.delta}</span>
+                    </div>
+                    <p className="body-sm text-muted mt-1">{entry.note || t('trustHistoryDefaultNote')}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -660,24 +652,15 @@ export default function ClientDashboard() {
                             <h4 className="headline-sm">{artisan.business_name}</h4>
                             <span className="label-sm text-secondary">{artisan.jewellery_specialization}</span>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                            <span className="badge badge-green">{t('verified')}</span>
-                            {artisan.reliability_badge && (
-                              <span 
-                                className="badge" 
-                                style={{ 
-                                  background: artisan.reliability_badge === 'Reliable' ? '#e6f4ea' : artisan.reliability_badge === 'Usually On Time' ? '#e8f0fe' : artisan.reliability_badge === 'New / Building History' ? '#fef7e0' : '#fce8e6', 
-                                  color: artisan.reliability_badge === 'Reliable' ? '#137333' : artisan.reliability_badge === 'Usually On Time' ? '#1a73e8' : artisan.reliability_badge === 'New / Building History' ? '#b06000' : '#c5221f',
-                                  border: '1px solid currentColor',
-                                  fontSize: '11px',
-                                  padding: '1px 6px',
-                                  fontWeight: '600'
-                                }}
-                              >
-                                🛡️ {artisan.reliability_badge}
-                              </span>
-                            )}
-                          </div>
+                          <span className="badge badge-green">{t('verified')}</span>
+                        </div>
+                        <div className="mt-2">
+                          <span className={`badge ${artisan.trust_badge === 'Reliable' ? 'badge-green' : artisan.trust_badge === 'Good Standing' ? 'badge-teal' : artisan.trust_badge === 'New / Building History' ? 'badge-gold' : 'badge-red'}`}>
+                            {artisan.trust_badge || t('trustBadge')}
+                          </span>
+                          <span className={`badge ml-2 ${artisan.reliability_badge === 'Reliable' ? 'badge-green' : artisan.reliability_badge === 'Usually On Time' ? 'badge-teal' : artisan.reliability_badge === 'New / Building History' ? 'badge-gold' : 'badge-red'}`} style={{ marginLeft: '8px' }}>
+                            {artisan.reliability_badge || 'Reliable'}
+                          </span>
                         </div>
                         <p className="body-md text-muted mt-2">{artisan.profile_description}</p>
                         
@@ -752,6 +735,11 @@ export default function ClientDashboard() {
                             <div>
                               <h4 className="headline-sm">{req.jewellery_type}</h4>
                               <span className="label-sm text-muted">To: {req.artisan_business_name}</span>
+                              <div className="mt-1">
+                                <span className={`badge ${req.client_trust_badge === 'Reliable' ? 'badge-green' : req.client_trust_badge === 'Good Standing' ? 'badge-teal' : req.client_trust_badge === 'New / Building History' ? 'badge-gold' : 'badge-red'}`}>
+                                  {req.client_trust_badge || t('trustBadge')}
+                                </span>
+                              </div>
                             </div>
                             <span className={`badge ${req.status === 'accepted' ? 'badge-teal' : req.status === 'rejected' ? 'badge-red' : 'badge-gold'}`}>
                               {req.status}
@@ -802,13 +790,8 @@ export default function ClientDashboard() {
                             <span className="label-sm text-muted">Artisan Design Notes:</span>
                             <p className="body-md italic">{quote.design_notes}</p>
                           </div>
-                          <div className="quote-meta border-t pt-4 mt-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span className="body-sm">Estimated Delivery: <strong>{new Date(quote.estimated_delivery_date).toLocaleDateString()}</strong></span>
-                              {quote.expected_completion_date && (
-                                <span className="body-sm">Expected Completion: <strong className="text-secondary">{new Date(quote.expected_completion_date).toLocaleDateString()}</strong></span>
-                              )}
-                            </div>
+                          <div className="quote-meta border-t pt-4 mt-4">
+                            <span className="body-sm">Estimated Delivery: <strong>{new Date(quote.estimated_delivery_date).toLocaleDateString()}</strong></span>
                             {quote.status === 'sent' && (
                               <div className="quote-actions">
                                 <button className="btn btn-secondary btn-sm" onClick={() => handleRejectQuote(quote.id)}>
@@ -850,18 +833,6 @@ export default function ClientDashboard() {
                           <div className="order-title-block">
                             <h4 className="headline-sm">Custom Jewellery Order</h4>
                             <span className="label-sm text-muted">Order ID: {order.id} • Artisan: {order.artisan_business_name}</span>
-                            <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
-                              {order.expected_completion_date && (
-                                <span className="label-sm" style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>
-                                  📅 Target Completion: <strong>{new Date(order.expected_completion_date).toLocaleDateString()}</strong>
-                                </span>
-                              )}
-                              {order.extended_completion_date && (
-                                <span className="label-sm" style={{ background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', padding: '2px 6px', borderRadius: '4px' }}>
-                                  🔄 Extended to: <strong>{new Date(order.extended_completion_date).toLocaleDateString()}</strong>
-                                </span>
-                              )}
-                            </div>
                           </div>
                           <div className="order-price-tags">
                             <div className="price-tag">
@@ -933,27 +904,16 @@ export default function ClientDashboard() {
                                 ✔️ Order complete. Funds released to artisan ledger. Thank you!
                               </p>
                             )}
-                            {order.status === 'cancelled_artisan_delay' && (
-                              <p className="body-sm text-red" style={{ color: '#e53e3e', fontWeight: 'bold' }}>
-                                ❌ Cancelled due to Artisan Production Delay. {order.refunded_amount > 0 ? `100% refund of ${formatCurrency(order.refunded_amount)} repaid.` : 'Refund issued.'}
-                              </p>
-                            )}
                             {order.status === 'Cancelled' && (
                               <p className="body-sm text-red" style={{ color: '#e53e3e' }}>
                                 ❌ Order cancelled. {order.refunded_amount > 0 ? `Refund of ${formatCurrency(order.refunded_amount)} (50% of advance) repaid.` : 'No refund issued.'}
                               </p>
                             )}
-                            {order.delay_status?.is_delayed && order.status !== 'cancelled_artisan_delay' && (
-                              <p className="body-sm text-red" style={{ color: '#e53e3e', fontWeight: 'bold', marginTop: '6px' }}>
-                                ⚠️ Production Delayed: This order is currently {order.delay_status.delay_days} day(s) overdue.
-                              </p>
-                            )}
-                            {order.delay_status?.eligible_for_refund && order.status !== 'cancelled_artisan_delay' && (
-                              <p className="body-sm text-red" style={{ color: '#e53e3e', background: 'rgba(229, 62, 62, 0.08)', padding: '10px', borderRadius: '6px', marginTop: '6px', border: '1px solid rgba(229, 62, 62, 0.2)' }}>
-                                💡 <strong>Refund Option Available:</strong> Since the artisan is 4+ days late and has not submitted a proactive extension request, you are entitled to cancel this order and receive a <strong>100% refund</strong> of your advance payment.
-                              </p>
-                            )}
                           </div>
+
+                          {order.status === 'Completed' && (
+                            <TransactionProofCard order={order} fetchProof={getClientOrderProof} />
+                          )}
 
                           <div className="drawer-buttons" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                             {order.status === 'Advance Payment Pending' && (
@@ -980,20 +940,28 @@ export default function ClientDashboard() {
                                 <CheckCircle2 size={16} /> Confirm Receipt & Release
                               </button>
                             )}
-                            {order.delay_status?.eligible_for_refund && order.status !== 'cancelled_artisan_delay' && (
-                              <button 
-                                className="btn btn-logout"
-                                onClick={() => handleCancelOrderDueToDelay(order.id)}
-                                style={{ background: '#e53e3e', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}
-                              >
-                                <XCircle size={16} /> Cancel Order (100% Refund)
-                              </button>
+                            {order.delay_status === 'late' && (
+                              <>
+                                <button
+                                  className="btn btn-secondary"
+                                  onClick={() => handleResolveDelay(order.id, 'stay_with_discount')}
+                                >
+                                  Keep with discount ({order.delay_discount_percent || 0}% off)
+                                </button>
+                                <button
+                                  className="btn btn-logout"
+                                  onClick={() => handleResolveDelay(order.id, 'cancel_full_refund')}
+                                  style={{ background: '#c53030', color: 'white' }}
+                                >
+                                  Cancel and refund
+                                </button>
+                              </>
                             )}
                             {canCancel(order) && (
                               <button 
                                 className="btn btn-logout"
                                 onClick={() => handleCancelOrder(order.id)}
-                                style={{ background: '#a0aec0', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                style={{ background: '#e53e3e', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}
                               >
                                 <XCircle size={16} /> {t('cancelBooking')}
                               </button>
