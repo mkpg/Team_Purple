@@ -74,8 +74,45 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
 
   return (
     <div className="card product-card">
-      <div className="product-image-wrapper" style={{ position: 'relative', overflow: 'hidden' }}>
-        <img src={images[currentIdx]} alt={product.name} className="product-image" style={{ width: '100%', height: '220px', objectFit: 'cover' }} />
+      <div className="product-image-wrapper" style={{ position: 'relative', overflow: 'hidden' }} onContextMenu={e => e.preventDefault()}>
+        <img 
+          src={images[currentIdx]} 
+          alt={product.name} 
+          className="product-image" 
+          style={{ width: '100%', height: '220px', objectFit: 'cover', userSelect: 'none', pointerEvents: 'none' }} 
+          onDragStart={e => e.preventDefault()}
+        />
+        {/* Dynamic Watermark Overlay */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            color: 'rgba(255, 255, 255, 0.3)',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            letterSpacing: '2px',
+            transform: 'rotate(-25deg)',
+            whiteSpace: 'nowrap',
+            border: '1px dashed rgba(255, 255, 255, 0.2)',
+            padding: '4px 10px',
+            borderRadius: '4px',
+            background: 'rgba(0, 0, 0, 0.1)',
+            textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+            textTransform: 'uppercase'
+          }}>
+            CraftShield Protected
+          </div>
+        </div>
         <div className="product-category-badge label-sm">{t(product.category)}</div>
         
         {images.length > 1 && (
@@ -292,14 +329,43 @@ function ReferenceImageSection({ url, getImageUrl }) {
   const [error, setError] = useState(false);
   if (error || !url) return null;
   return (
-    <div className="reference-image-preview mt-4">
+    <div className="reference-image-preview mt-4" style={{ position: 'relative', display: 'inline-block' }} onContextMenu={e => e.preventDefault()}>
       <span className="label-sm text-muted block mb-1">Reference Design:</span>
-      <img 
-        src={getImageUrl(url)} 
-        alt="Reference Design" 
-        onError={() => setError(true)}
-        style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--color-outline)' }} 
-      />
+      <div style={{ position: 'relative', width: '120px', height: '120px', overflow: 'hidden', borderRadius: '8px' }}>
+        <img 
+          src={getImageUrl(url)} 
+          alt="Reference Design" 
+          onError={() => setError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', userSelect: 'none', pointerEvents: 'none' }} 
+          onDragStart={e => e.preventDefault()}
+        />
+        {/* Dynamic Watermark Overlay */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          overflow: 'hidden'
+        }}>
+          <div style={{
+            color: 'rgba(255, 255, 255, 0.35)',
+            fontSize: '9px',
+            fontWeight: 'bold',
+            transform: 'rotate(-25deg)',
+            whiteSpace: 'nowrap',
+            textShadow: '1px 1px 1px rgba(0,0,0,0.6)',
+            textTransform: 'uppercase'
+          }}>
+            CraftShield
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
