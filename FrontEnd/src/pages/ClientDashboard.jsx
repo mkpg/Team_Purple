@@ -408,6 +408,7 @@ export default function ClientDashboard() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressMessage, setUploadProgressMessage] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
   const [requestForm, setRequestForm] = useState({
     artisan_id: '',
@@ -448,11 +449,13 @@ export default function ClientDashboard() {
   const [signingQuote, setSigningQuote] = useState(null);
   const [signatureName, setSignatureName] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isAcceptingQuote, setIsAcceptingQuote] = useState(false);
 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState(null); // { orderId, type: 'advance' | 'final', amount }
   const [txRef, setTxRef] = useState('');
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
   // Tab count indicators
   const activeOrdersCount = clientOrders.filter(o => !['Completed', 'Cancelled'].includes(o.status)).length;
@@ -482,6 +485,8 @@ export default function ClientDashboard() {
       return;
     }
 
+    if (isSubmittingRequest) return;
+    setIsSubmittingRequest(true);
     try {
       await createCustomRequest({
         ...requestForm,
@@ -505,6 +510,8 @@ export default function ClientDashboard() {
       setActiveTab('requests');
     } catch (err) {
       toast.error(err.message || 'Failed to submit request');
+    } finally {
+      setIsSubmittingRequest(false);
     }
   };
 
@@ -523,6 +530,8 @@ export default function ClientDashboard() {
       toast.error('Please type your name to sign the contract.');
       return;
     }
+    if (isAcceptingQuote) return;
+    setIsAcceptingQuote(true);
     try {
       await acceptQuotation(signingQuote.id, { signed_by: signatureName });
       toast.success('Contract signed & Quotation accepted! Order created.');
@@ -530,6 +539,8 @@ export default function ClientDashboard() {
       setActiveTab('orders');
     } catch (err) {
       toast.error(err.message || 'Failed to accept quotation');
+    } finally {
+      setIsAcceptingQuote(false);
     }
   };
 
@@ -554,7 +565,8 @@ export default function ClientDashboard() {
       toast.error('Transaction reference is required');
       return;
     }
-
+    if (isSubmittingPayment) return;
+    setIsSubmittingPayment(true);
     try {
       if (paymentTarget.type === 'advance') {
         await payAdvance(paymentTarget.orderId, txRef);
@@ -567,6 +579,8 @@ export default function ClientDashboard() {
       setPaymentTarget(null);
     } catch (err) {
       toast.error(err.message || 'Payment submission failed');
+    } finally {
+      setIsSubmittingPayment(false);
     }
   };
 
@@ -1304,7 +1318,9 @@ export default function ClientDashboard() {
 
           <div className="modal-actions border-t pt-4">
             <button type="button" className="btn btn-secondary" onClick={() => setIsRequestModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Submit Design request</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmittingRequest}>
+              {isSubmittingRequest ? 'Submitting...' : 'Submit Design request'}
+            </button>
           </div>
         </form>
       </Modal>
@@ -1335,7 +1351,9 @@ export default function ClientDashboard() {
 
             <div className="modal-actions border-t pt-4">
               <button type="button" className="btn btn-secondary" onClick={() => setIsPaymentModalOpen(false)}>Cancel Sandbox</button>
-              <button type="submit" className="btn btn-primary">Submit Payment</button>
+              <button type="submit" className="btn btn-primary" disabled={isSubmittingPayment}>
+                {isSubmittingPayment ? 'Processing...' : 'Submit Payment'}
+              </button>
             </div>
           </form>
         )}
@@ -1399,9 +1417,9 @@ export default function ClientDashboard() {
                 type="button" 
                 className="btn btn-primary" 
                 onClick={handleSignContractAndAccept}
-                disabled={!termsAccepted || !signatureName.trim()}
+                disabled={!termsAccepted || !signatureName.trim() || isAcceptingQuote}
               >
-                Sign Contract & Commission Design
+                {isAcceptingQuote ? 'Signing & Committing...' : 'Sign Contract & Commission Design'}
               </button>
             </div>
           </div>
