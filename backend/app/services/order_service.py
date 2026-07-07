@@ -29,6 +29,14 @@ class OrderService:
         if not quotation:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Quotation not found")
             
+        # Check if an order has already been created for this quotation to prevent race conditions
+        existing_order = await orders_coll.find_one({"quotation_id": quot_oid})
+        if existing_order:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An order has already been created for this quotation"
+            )
+            
         if str(quotation["client_id"]) != client_id_str:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, 
