@@ -52,6 +52,17 @@ export const translations = {
     cancellationPolicy: "Cancel within 24 hours for a 50% refund of the advance deposit.",
     securePaymentActive: "Secure Buyer Protection Active",
     refundedAmount: "Refunded Amount",
+    trustScore: "Trust Score",
+    trustBadgeOverview: "Your standing as a client",
+    trustBadge: "Trust Badge",
+    trustHistory: "Recent Score History",
+    trustHistoryDefaultNote: "Friendly note recorded for your score history.",
+    trustOrdersCompleted: "Good orders completed",
+    pathToImprovement: "Path to improvement",
+    reliableBadge: "Reliable",
+    goodStandingBadge: "Good Standing",
+    newBuildingHistoryBadge: "New / Building History",
+    cautionBadge: "Caution",
 
     // Dynamic Seeded Products
     "Bespoke Rose Gold Filigree Ring": "Bespoke Rose Gold Filigree Ring",
@@ -68,10 +79,7 @@ export const translations = {
     "Band": "Band",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "Exquisite 18k rose gold ring featuring handcrafted filigree...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "An elegant 18k yellow gold pendant hosting a pear-shaped...",
-    "Individually patterned band using traditional Japanese layering of...": "Individually patterned band using traditional Japanese layering of...",
-    blockchainVerified: "Blockchain Verified",
-    verifyDesign: "Verify Design on Blockchain",
-    blockchainExplanation: "This badge represents an immutable proof of registration timestamp on the VeChain blockchain, establishing when the design was first uploaded. Note: This is evidence of existence at a point in time, not a legally binding trademark or copyright guarantee."
+    "Individually patterned band using traditional Japanese layering of...": "Individually patterned band using traditional Japanese layering of..."
   },
   ta: {
     appName: "கிராஃப்ட்ஷீல்ட்",
@@ -126,6 +134,17 @@ export const translations = {
     cancellationPolicy: "50% முன்தொகை திரும்பப் பெற 24 மணி நேரத்திற்குள் ரத்து செய்யவும்.",
     securePaymentActive: "பாதுகாப்பான வாடிக்கையாளர் பாதுகாப்பு செயலில் உள்ளது",
     refundedAmount: "திருப்பித் தரப்பட்ட தொகை",
+    trustScore: "நம்பிக்கை மதிப்பெண்",
+    trustBadgeOverview: "வாடிக்கையாளராக உங்கள் நிலை",
+    trustBadge: "நம்பிக்கை அடையாளம்",
+    trustHistory: "சமீபத்திய மதிப்பெண் வரலாறு",
+    trustHistoryDefaultNote: "உங்கள் மதிப்பெண் வரலாற்றில் பதிவு செய்யப்பட்ட குறிப்பு.",
+    trustOrdersCompleted: "நல்ல ஆர்டர்கள் முடிக்கப்பட்டவை",
+    pathToImprovement: "மேம்பாட்டிற்கான பாதை",
+    reliableBadge: "நம்பகமானவர்",
+    goodStandingBadge: "நல்ல நிலை",
+    newBuildingHistoryBadge: "புதியது / வரலாறு உருவாகிறது",
+    cautionBadge: "கவனம்",
 
     // Dynamic Seeded Products
     "Bespoke Rose Gold Filigree Ring": "தனிப்பயனாக்கப்பட்ட ரோஸ் கோல்ட் ஃபிலிகிரி மோதிரம்",
@@ -142,10 +161,7 @@ export const translations = {
     "Band": "வளையம்",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "கைவினை ஃபிலிகிரி வேலைப்பாடுகளுடன் கூடிய நேர்த்தியான 18k ரோஸ் கோல்ட் மோதிரம்...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "பேரிக்காய் வடிவ ரத்தினம் கொண்ட நேர்த்தியான 18k மஞ்சள் தங்கம் பதக்கம்...",
-    "Individually patterned band using traditional Japanese layering of...": "பாரம்பரிய ஜப்பானிய உலோக அடுக்கு முறையைப் பயன்படுத்தி வடிவமைக்கப்பட்ட மோதிரம்...",
-    blockchainVerified: "பிளாக்செயின் மூலம் சரிபார்க்கப்பட்டது",
-    verifyDesign: "வடிவமைப்பை பிளாக்செயினில் சரிபார்க்கவும்",
-    blockchainExplanation: "இந்த பேட்ஜ் பிளாக்செயினில் பதிவுசெய்யப்பட்ட நேர முத்திரையின் மாறாத சான்றாகும். இது வடிவமைப்பு முதலில் எப்போது பதிவேற்றப்பட்டது என்பதை நிரூபிக்கிறது. குறிப்பு: இது ஒரு குறிப்பிட்ட நேரத்தில் வடிவமைப்பு இருந்ததற்கான சான்று மட்டுமே, சட்டப்பூர்வ காப்புரிமை அல்ல."
+    "Individually patterned band using traditional Japanese layering of...": "பாரம்பரிய ஜப்பானிய உலோக அடுக்கு முறையைப் பயன்படுத்தி வடிவமைக்கப்பட்ட மோதிரம்..."
   },
   te: {
     appName: "క్రాఫ్ట్‌షీల్డ్",
@@ -200,6 +216,17 @@ export const translations = {
     cancellationPolicy: "50% అడ్వాన్స్ వాపసు కోసం బుకింగ్ చేసిన 24 గంటలలోపు రద్దు చేసుకోండి.",
     securePaymentActive: "సురక్షిత కస్టమర్ రక్షణ సక్రియంగా ఉంది",
     refundedAmount: "తిరిగి చెల్లించిన మొత్తం",
+    trustScore: "నమ్మకం స్కోర్",
+    trustBadgeOverview: "గ్రాహకుడిగా మీ స్థితి",
+    trustBadge: "నమ్మకం బ్యాడ్జ్",
+    trustHistory: "ఇటీవలి స్కోర్ చరిత్ర",
+    trustHistoryDefaultNote: "మీ స్కోర్ చరిత్రలో నమోదు చేసిన స్నేహపూర్వక గమనిక.",
+    trustOrdersCompleted: "పూర్తి చేసిన మంచి ఆర్డర్లు",
+    pathToImprovement: "మెరుగుదల మార్గం",
+    reliableBadge: "నమ్మదగినది",
+    goodStandingBadge: "మంచి స్థితి",
+    newBuildingHistoryBadge: "కొత్తది / చరిత్ర నిర్మాణంలో ఉంది",
+    cautionBadge: "జాగ్రత్త",
 
     // Dynamic Seeded Products
     "Bespoke Rose Gold Filigree Ring": "కస్టమ్ రోజ్ గోల్డ్ ఫిలిగ్రీ ఉంగరం",
@@ -216,10 +243,7 @@ export const translations = {
     "Band": "బ్యాండ్",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "హస్తకళా ఫిలిగ్రీతో కూడిన సున్నితమైన 18k రోజ్ గోల్డ్ ఉంగరం...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "పియర్ ఆకారపు రత్నంతో కూడిన సొగసైన 18k పసుపు బంగారు లాకెట్...",
-    "Individually patterned band using traditional Japanese layering of...": "సాంప్రదాయ జపనీస్ మెటల్ లేయరింగ్ ఉపయోగించి తయారు చేసిన ఉంగరం...",
-    blockchainVerified: "బ్లాక్‌చైన్ ధృవీకరించబడింది",
-    verifyDesign: "డిజైన్ బ్లాక్‌చైన్‌లో ధృవీకరించు",
-    blockchainExplanation: "ఈ బ్యాడ్జ్ బ్లాక్‌చైన్‌లో నమోదు చేయబడిన సమయ ముద్ర యొక్క మార్పులేని సాక్ష్యం. ఇది డిజైన్ మొదట ఎప్పుడు అప్‌లోడ్ చేయబడిందో నిరూపిస్తుంది. గమనిక: ఇది కేవలం ఒక నిర్దిష్ట సమయంలో ఉనికికి సంబంధించిన రుజువు మాత్రమే, చట్టపరమైన కాపీరైట్ కాదు."
+    "Individually patterned band using traditional Japanese layering of...": "సాంప్రదాయ జపనీస్ మెటల్ లేయరింగ్ ఉపయోగించి తయారు చేసిన ఉంగరం..."
   },
   kn: {
     appName: "ಕ್ರಾಫ್ಟ್‌ಶೀಲ್ಡ್",
@@ -274,6 +298,17 @@ export const translations = {
     cancellationPolicy: "50% ಮುಂಗಡ ಮರುಪಾವತಿಗಾಗಿ ಬುಕಿಂಗ್ ಆದ 24 ಗಂಟೆಯೊಳಗೆ ರದ್ದುಗೊಳಿಸಿ.",
     securePaymentActive: "ಸುರಕ್ಷಿತ ಗ್ರಾಹಕ ರಕ್ಷಣೆ ಸಕ್ರಿಯವಾಗಿದೆ",
     refundedAmount: "ಮರುಪಾವತಿ ಮಾಡಿದ ಮೊತ್ತ",
+    trustScore: "ನಂಬಿಕೆ ಅಂಕ",
+    trustBadgeOverview: "ಗ್ರಾಹಕರಾಗಿ ನಿಮ್ಮ ಸ್ಥಿತಿ",
+    trustBadge: "ನಂಬಿಕೆ ಬ್ಯಾಡ್ಜ್",
+    trustHistory: "ಇತ್ತೀಚಿನ ಅಂಕ ಇತಿಹಾಸ",
+    trustHistoryDefaultNote: "ನಿಮ್ಮ ಅಂಕ ಇತಿಹಾಸದಲ್ಲಿ ದಾಖಲಾದ ಸ್ನೇಹಪೂರ್ಣ ಟಿಪ್ಪಣಿ.",
+    trustOrdersCompleted: "ಪೂರ್ಣಗೊಂಡ ಉತ್ತಮ ಆರ್ಡರ್‌ಗಳು",
+    pathToImprovement: "ಸುಧಾರಣೆಯ ಮಾರ್ಗ",
+    reliableBadge: "ವಿಶ್ವಾಸಾರ್ಹ",
+    goodStandingBadge: "ಉತ್ತಮ ಸ್ಥಿತಿ",
+    newBuildingHistoryBadge: "ಹೊಸದು / ಇತಿಹಾಸ ನಿರ್ಮಾಣವಾಗುತ್ತಿದೆ",
+    cautionBadge: "ಎಚ್ಚರಿಕೆ",
 
     // Dynamic Seeded Products
     "Bespoke Rose Gold Filigree Ring": "ಕಸ್ಟಮ್ ರೋಸ್ ಗೋಲ್ಡ್ ಫಿಲಿಗ್ರೀ ಉಂಗುರ",
@@ -290,10 +325,7 @@ export const translations = {
     "Band": "ಬ್ಯಾಂಡ್",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "ಹಸ್ತನಿರ್ಮಿತ ಫಿಲಿಗ್ರೀ ಹೊಂದಿರುವ ಅತ್ಯುತ್ತಮ 18k ರೋಸ್ ಗೋಲ್ಡ್ ಉಂಗುರ...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "ಪಿಯರ್ ಆಕಾರದ ರತ್ನವನ್ನು ಹೊಂದಿರುವ ಸೊಗಸಾದ 18k ಹಳದಿ ಚಿನ್ನದ ಪದಕ...",
-    "Individually patterned band using traditional Japanese layering of...": "ಸಾಂಪ್ರದಾಯಿಕ ಜಪಾನೀಸ್ ಲೋಹದ ಪದರಗಳನ್ನು ಬಳಸಿ ವಿನ್ಯಾಸಗೊಳಿಸಿದ ಉಂಗುರ...",
-    blockchainVerified: "ಬ್ಲಾಕ್‌ಚೈನ್ ದೃಢೀಕರಿಸಲಾಗಿದೆ",
-    verifyDesign: "ವಿನ್ಯಾಸವನ್ನು ಬ್ಲಾಕ್‌ಚೈನ್‌ನಲ್ಲಿ ದೃಢೀಕರಿಸಿ",
-    blockchainExplanation: "ಈ ಬ್ಯಾಡ್ಜ್ ಬ್ಲಾಕ್‌ಚೈನ್‌ನಲ್ಲಿ ನೋಂದಾಯಿಸಲಾದ ಸಮಯದ ಮುದ್ರೆಯ ಬದಲಾಗದ ಸಾಕ್ಷಿಯಾಗಿದೆ. ಇದು ವಿನ್ಯಾಸವು ಮೊದಲು ಯಾವಾಗ ಅಪ್‌ಲೋഡ് ಮಾಡಲ್ಪಟ್ಟಿದೆ ಎಂಬುದನ್ನು ಸಾಬೀತುಪಡಿಸುತ್ತದೆ. ಗಮನಿಸಿ: ಇದು ಕೇವല ಒಂದು ನಿರ್ദിಷ್ಟ ಸಮಯದಲ್ಲಿ ಅಸ್ತಿತ್ವದಲ್ಲಿದ್ದ ಪುರಾವೆಯಾಗಿದೆ, ಕಾನೂನುಬದ್ಧ ಹಕ್ಕುಸ್ವಾಮ್ಯವಲ್ಲ."
+    "Individually patterned band using traditional Japanese layering of...": "ಸಾಂಪ್ರದಾಯಿಕ ಜಪಾನೀಸ್ ಲೋಹದ ಪದರಗಳನ್ನು ಬಳಸಿ ವಿನ್ಯಾಸಗೊಳಿಸಿದ ಉಂಗುರ..."
   },
   ml: {
     appName: "ക്രാഫ്റ്റ്ഷീൽഡ്",
@@ -348,6 +380,17 @@ export const translations = {
     cancellationPolicy: "അഡ്വാൻസ് ഡെപ്പോസിറ്റിന്റെ 50% റീഫണ്ടിനായി ബുക്കിംഗ് ചെയ്ത് 24 മണിക്കൂറിനുള്ളിൽ റദ്ദാക്കുക.",
     securePaymentActive: "സുരക്ഷിത ഉപഭോക്തൃ സംരക്ഷണം സജീവമാണ്",
     refundedAmount: "തിരികെ നൽകിയ തുക",
+    trustScore: "വിശ്വാസ സ്കോർ",
+    trustBadgeOverview: "ക്ലയന്റായി നിങ്ങളുടെ നില",
+    trustBadge: "വിശ്വാസ ബാഡ്ജ്",
+    trustHistory: "അടുത്തകാല സ്കോർ ചരിത്രം",
+    trustHistoryDefaultNote: "നിങ്ങളുടെ സ്കോർ ചരിത്രത്തിൽ രേഖപ്പെടുത്തിയ സൗഹൃദ കുറിപ്പ്.",
+    trustOrdersCompleted: "പൂർത്തിയായ നല്ല ഓർഡറുകൾ",
+    pathToImprovement: "മെച്ചത്തിലേക്കുള്ള വഴി",
+    reliableBadge: "വിശ്വസനീയമായ",
+    goodStandingBadge: "നല്ല നില",
+    newBuildingHistoryBadge: "പുതിയത് / ചരിത്രം നിർമ്മിക്കുന്നു",
+    cautionBadge: "ജാഗ്രത",
 
     // Dynamic Seeded Products
     "Bespoke Rose Gold Filigree Ring": "കസ്റ്റം റോസ് ഗോൾഡ് ഫിലിഗ്രി മോതിരം",
@@ -364,9 +407,24 @@ export const translations = {
     "Band": "ബാൻഡ്",
     "Exquisite 18k rose gold ring featuring handcrafted filigree...": "ഹാൻഡ്ക്രാഫ്റ്റ് ഫിലിഗ്രി ഉള്ള മികച്ച 18k റോസ് ഗോൾഡ് മോതിരം...",
     "An elegant 18k yellow gold pendant hosting a pear-shaped...": "പിയർ ആകൃതിയിലുള്ള രത്നം പതിച്ച മനോഹരമായ 18k മഞ്ഞ സ്വർണ്ണ ലോക്കറ്റ്...",
-    "Individually patterned band using traditional Japanese layering of...": "പരമ്പരാഗത ജാപ്പനീസ് മെറ്റൽ ലെയറിംഗ് ഉപയോഗിച്ച് നിർമ്മിച്ച മോതിരം...",
-    blockchainVerified: "ബ്ലോക്ക്ചെയിൻ വെരിഫൈഡ്",
-    verifyDesign: "ഡിസൈൻ ബ്ലോക്ക്ചെയിനിൽ വെരിഫൈ ചെയ്യുക",
-    blockchainExplanation: "ഈ ബാഡ്ജ് ബ്ലോക്ക്ചെയിനിൽ രജിസ്റ്റർ ചെയ്ത സമയത്തിന്റെ മാറ്റമില്ലാത്ത തെളിവാണ്. ഇത് ഡിസൈൻ ആദ്യം എപ്പോൾ അപ്‌ലോഡ് ചെയ്തു എന്ന് തെളിയിക്കുന്നു. കുറിപ്പ്: ഇത് ഒരു പ്രത്യേക സമയത്ത് നിലവിലുണ്ടായിരുന്നതിന്റെ തെളിവ് മാത്രമാണ്, നിയമപരമായ പകർപ്പവകാശമല്ല."
+    "Individually patterned band using traditional Japanese layering of...": "പരമ്പരാഗത ജാപ്പനീസ് മെറ്റൽ ലെയറിംഗ് ഉപയോഗിച്ച് നിർമ്മിച്ച മോതിരം..."
   }
 };
+
+const proofTranslations = {
+  verifiedTransaction: "Verified Transaction",
+  couldNotVerifyProof: "Could Not Verify This Proof",
+  verifiedTransactionReceipt: "Verified transaction receipt",
+  jewelType: "Jewel type",
+  proofAmount: "Amount",
+  proofDate: "Date",
+  proofId: "Proof ID",
+  proofNotice: "This verifies that a CraftShield transaction record exists and has not been altered. It does not prove the physical jewellery material authenticity."
+};
+
+Object.keys(translations).forEach((lang) => {
+  translations[lang] = {
+    ...translations[lang],
+    ...proofTranslations
+  };
+});

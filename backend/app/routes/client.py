@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from bson import ObjectId
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 
 from app.dependencies import require_client
 from app.database import get_collection
@@ -224,10 +225,18 @@ async def get_quotations(current_user: dict = Depends(require_client)):
         })
     return results
 
+class AcceptQuotationPayload(BaseModel):
+    signed_by: Optional[str] = None
+
 @router.put("/quotations/{quotation_id}/accept")
-async def accept_quotation(quotation_id: str, current_user: dict = Depends(require_client)):
-    """Accept a quotation. This changes status to 'accepted' and creates a new Order."""
-    return await OrderService.create_order_from_quotation(quotation_id, str(current_user["_id"]))
+async def accept_quotation(
+    quotation_id: str, 
+    payload: Optional[AcceptQuotationPayload] = None,
+    current_user: dict = Depends(require_client)
+):
+    """Accept a quotation. This changes status to 'accepted' and creates a new Order with digital contract signature."""
+    signed_name = payload.signed_by if (payload and payload.signed_by) else current_user.get("full_name", "Client")
+    return await OrderService.create_order_from_quotation(quotation_id, str(current_user["_id"]), signed_by=signed_name)
 
 @router.put("/quotations/{quotation_id}/reject")
 async def reject_quotation(quotation_id: str, current_user: dict = Depends(require_client)):
@@ -382,6 +391,11 @@ async def cancel_order(order_id: str, current_user: dict = Depends(require_clien
 async def cancel_order_due_to_artisan_delay(order_id: str, current_user: dict = Depends(require_client)):
     """Client cancels the order due to artisan's production delay, invoking full refund."""
     return await OrderService.cancel_order_by_client_artisan_delay(order_id, str(current_user["_id"]))
+
+@router.put("/orders/{order_id}/auto-release")
+async def auto_release_order(order_id: str, current_user: dict = Depends(require_client)):
+    """Simulate automatic release of final payment after delivery escrow period."""
+    return await OrderService.auto_release_order_payment(order_id)
 
 @router.get("/payments")
 async def get_payments(current_user: dict = Depends(require_client)):

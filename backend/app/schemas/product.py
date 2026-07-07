@@ -27,31 +27,29 @@ class ProductUpdate(BaseModel):
     estimated_delivery_days: Optional[int] = Field(None, gt=0)
     is_active: Optional[bool] = None
 
+class ImageFingerprint(BaseModel):
+    sha256_hash: str
+    phash: str
+    computed_at: datetime
+
+class SimilarityImageCheck(BaseModel):
+    image_url: str = Field(..., min_length=3)
+
+class SimilarityMatch(BaseModel):
+    product_id: str
+    artisan_id: str
+    distance: int
+    name: Optional[str] = None
+    image_url: Optional[str] = None
+
 class ProductOut(ProductBase):
     id: str
     artisan_id: str
+    sha256_hash: Optional[str] = None
+    phash: Optional[str] = None
+    hash_computed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
-
-class DesignRegisterPayload(BaseModel):
-    override_similarity_warning: bool = False
-
-class SimilarityMatch(BaseModel):
-    product_id: str
-    name: str
-    artisan_id: str
-    artisan_business_name: str
-    distance: int
-    image_url: str
-
-class DesignProof(BaseModel):
-    design_hash: str
-    phash: str
-    tx_id: str
-    block_number: int
-    registered_at: datetime
-    artisan_address: str
-    explorer_url: str

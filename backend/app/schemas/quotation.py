@@ -6,8 +6,8 @@ class QuotationBase(BaseModel):
     custom_request_id: str
     quoted_amount: float = Field(..., gt=0.0)
     advance_amount: float = Field(..., ge=0.0)
-    estimated_delivery_date: date
     expected_completion_date: date
+    estimated_delivery_date: Optional[date] = None
     design_notes: str = Field(..., min_length=5, max_length=1000)
 
 class QuotationCreate(QuotationBase):
