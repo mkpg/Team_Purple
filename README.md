@@ -10,18 +10,18 @@ CraftShield utilizes a modern three-tier decoupled architecture designed for hig
 
 ```mermaid
 graph TD
-    subgraph Client Tier (PWA)
+    subgraph "Client Tier (PWA)"
         A[React SPA / Vite] -->|PWA / Service Worker| B[Local Caching & Device API]
         A -->|Capacitor Wrapper| C[Android Native Build]
     end
 
-    subgraph Application Tier
+    subgraph "Application Tier"
         D[FastAPI Backend Server] -->|Motor Async Driver| E[(MongoDB Database)]
         D -->|VIP-191 Fee Delegation| F[VeChain Thor Blockchain]
         D -->|imagehash / PIL| G[Perceptual Hashing Engine]
     end
 
-    subgraph External Networks
+    subgraph "External Networks"
         F -->|Smart Contract| H[DesignRegistry.sol]
     end
 ```
