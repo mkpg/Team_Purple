@@ -513,6 +513,14 @@ export const CraftShieldProvider = ({ children }) => {
     return res;
   };
 
+  const verifyPublicProof = async (proofId) => {
+    return await apiFetch(`/verify/${proofId}`);
+  };
+
+  const lookupAdminProof = async (lookupValue) => {
+    return await apiFetch(`/api/admin/proofs/${lookupValue}`);
+  };
+
 
   return (
     <CraftShieldContext.Provider value={{
@@ -551,6 +559,7 @@ export const CraftShieldProvider = ({ children }) => {
       cancelOrder,
       cancelOrderDueToDelay,
       autoReleaseOrder,
+      verifyPublicProof,
 
       // Artisan state
       artisanStats,
@@ -589,7 +598,8 @@ export const CraftShieldProvider = ({ children }) => {
       adminDeleteProduct,
       adminUpdateProduct,
       getArtisanReliability,
-      adjustArtisanReliability
+      adjustArtisanReliability,
+      lookupAdminProof
 
     }}>
       {children}
