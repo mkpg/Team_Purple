@@ -13,6 +13,7 @@ const input = {
         }
     },
     settings: {
+        evmVersion: 'paris',
         outputSelection: {
             '*': {
                 '*': ['abi', 'evm.bytecode']

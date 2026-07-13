@@ -1,10 +1,11 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Package, Truck, CheckCircle2, IndianRupee, Hammer, Send, Eye, FileText, ShoppingBag, CreditCard, XCircle, Shield, RefreshCw } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CraftShieldContext } from '../context/CraftShieldContext';
 import Modal from '../components/Modal';
+import DynamicTranslate from '../components/DynamicTranslate';
 import './ClientDashboard.css';
 
 const containerVariants = {
@@ -18,7 +19,7 @@ const itemVariants = {
   visible: { y: 0, opacity: 1 }
 };
 
-export function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen }) {
+export function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen, setBuyingProduct, setSelectedProduct }) {
   const { t, language, API_BASE_URL, getDesignProof } = useContext(CraftShieldContext);
 
 
@@ -65,21 +66,21 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
   };
 
   const getDaysTranslation = () => {
-    if (language === 'ta') return 'நாட்கள்';
-    if (language === 'te') return 'రోజులు';
-    if (language === 'kn') return 'ದಿನಗಳು';
-    if (language === 'ml') return 'ദിവസങ്ങൾ';
+    if (language === 'ta') return '\u0ba8\u0bbe\u0b9f\u0bcd\u0b95\u0bb3\u0bcd';
+    if (language === 'te') return '\u0c30\u0c4b\u0c1c\u0c41\u0c32\u0c41';
+    if (language === 'kn') return '\u0ca6\u0cbf\u0ca8\u0c97\u0cb3\u0cc1';
+    if (language === 'ml') return '\u0d26\u0d3f\u0d35\u0d38\u0d19\u0d4d\u0d19\u0d7e';
     return 'days';
   };
 
   return (
-    <div className="card product-card">
+    <div className="card product-card" style={{ cursor: 'pointer' }} onClick={() => setSelectedProduct(product)}>
       <div className="product-image-wrapper" style={{ position: 'relative', overflow: 'hidden' }} onContextMenu={e => e.preventDefault()}>
         <img 
           src={images[currentIdx]} 
           alt={product.name} 
           className="product-image" 
-          style={{ width: '100%', height: '220px', objectFit: 'cover', userSelect: 'none', pointerEvents: 'none' }} 
+          style={{ width: '100%', height: '220px', objectFit: 'cover', userSelect: 'none', pointerEvents: 'none', filter: 'blur(1.5px) contrast(1.05) brightness(0.98)' }} 
           onDragStart={e => e.preventDefault()}
         />
         {/* Dynamic Watermark Overlay */}
@@ -113,7 +114,7 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
             CraftShield Protected
           </div>
         </div>
-        <div className="product-category-badge label-sm">{t(product.category)}</div>
+        <div className="product-category-badge label-sm"><DynamicTranslate text={product.category} /></div>
         
         {images.length > 1 && (
           <>
@@ -140,11 +141,12 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
                 zIndex: 10
               }}
             >
-              ‹
+              <span className="notranslate">{'\u2039'}</span>
             </button>
             <button 
               type="button"
               onClick={nextImage}
+              className="notranslate"
               style={{
                 position: 'absolute',
                 right: '8px',
@@ -165,9 +167,10 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
                 zIndex: 10
               }}
             >
-              ›
+              <span className="notranslate">{'\u203a'}</span>
             </button>
             <div 
+              className="notranslate"
               style={{
                 position: 'absolute',
                 bottom: '8px',
@@ -187,14 +190,25 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
         )}
       </div>
       <div className="card-content">
-        <h4 className="headline-sm">{t(product.name)}</h4>
-        <p className="body-sm text-muted line-clamp">{t(product.description)}</p>
+        <h4 className="headline-sm"><DynamicTranslate text={product.name} /></h4>
+        <p className="body-sm text-muted line-clamp"><DynamicTranslate text={product.description} /></p>
         <div className="product-specifications">
-          <span className="spec-label">{t('material')}: <strong>{t(product.material)}</strong></span>
-          <span className="spec-label">{t('delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
+          <span className="spec-label">{t('Material')}: <strong><DynamicTranslate text={product.material} /></strong></span>
+          <span className="spec-label">{t('Delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
         </div>
         <div style={{ marginTop: '8px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span className="text-muted">By: <strong>{product.artisan_business_name}</strong></span>
+          <span className="text-muted">By: <strong style={{ color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }} onClick={(e) => {
+            e.stopPropagation();
+            setRequestForm(prev => ({
+              ...prev,
+              artisan_id: product.artisan_id,
+              jewellery_type: product.category,
+              description: `Request for custom jewelry based on design: ${product.name}...`,
+              material_preference: product.material,
+              budget: product.price
+            }));
+            setIsRequestModalOpen(true);
+          }} title="Request Custom Design from this Artisan"><DynamicTranslate text={product.artisan_business_name} /></strong></span>
           {product.artisan_reliability_badge && (
             <span 
               style={{
@@ -218,20 +232,14 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <span className="display-sm font-bold text-secondary">{formatCurrency(product.price)}</span>
             <button 
-              className="btn btn-secondary btn-sm"
-              onClick={() => {
-                setRequestForm(prev => ({
-                  ...prev,
-                  artisan_id: product.artisan_id,
-                  jewellery_type: product.category,
-                  description: `Inquiry regarding: ${product.name}. Preferred customizations details...`,
-                  material_preference: product.material,
-                  budget: product.price
-                }));
-                setIsRequestModalOpen(true);
+              className="btn btn-primary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setBuyingProduct(product);
               }}
             >
-              {t('requestCustomMock')}
+              <ShoppingBag size={14} /> Buy Design
             </button>
           </div>
 
@@ -240,14 +248,14 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
               className="flex items-center gap-1.5 text-xs font-semibold text-teal bg-teal-light px-2.5 py-1 rounded border border-teal-variant cursor-pointer hover:opacity-90 transition-opacity"
               onClick={handleShowProof}
               style={{ display: 'inline-flex', cursor: 'pointer', background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', border: '1px solid var(--color-teal)', padding: '4px 8px', borderRadius: '4px', gap: '4px', alignSelf: 'flex-start' }}
-              title={t('verifyDesign')}
+              title={t('Verify Design')}
             >
               {verifying ? (
                 <RefreshCw size={12} className="animate-spin" />
               ) : (
                 <Shield size={12} />
               )}
-              <span>{t('blockchainVerified')}</span>
+              <span>{t('Blockchain Verified')}</span>
             </div>
           )}
         </div>
@@ -262,8 +270,11 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
         {proofData && (
           <div className="space-y-4 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="bg-teal-50 p-4 rounded-lg border border-teal-200 text-teal-800" style={{ background: '#e6f4f1', padding: '12px', borderRadius: '8px', color: '#115e59', border: '1px solid #b2dfdb' }}>
-              <p className="font-semibold" style={{ fontWeight: 'bold' }}>{t('blockchainVerified')}</p>
-              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>{t('blockchainExplanation')}</p>
+              <p className="font-semibold" style={{ fontWeight: 'bold' }}>{t('Blockchain Verified')}</p>
+              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>{t('Secured via digital fingerprint on public ledger.')}</p>
+              <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', backgroundColor: proofData.simulated ? '#fef3c7' : '#d1fae5', color: proofData.simulated ? '#92400e' : '#065f46', border: proofData.simulated ? '1px solid #f59e0b' : '1px solid #10b981' }}>
+                Status: {proofData.simulated ? 'Simulated Ledger' : 'Live VeChain Testnet'}
+              </div>
             </div>
             
             <div className="space-y-2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -305,7 +316,7 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
 
             <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <a 
-                href={proofData.explorer_url} 
+                href={proofData.explorer_url || proofData.explorer_link} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="btn btn-primary text-xs"
@@ -389,9 +400,11 @@ export default function ClientDashboard() {
     cancelOrder,
     cancelOrderDueToDelay,
     autoReleaseOrder,
+    buyProductDesign,
     uploadImages,
     t,
-    language
+    language,
+    apiFetch
   } = useContext(CraftShieldContext);
 
   const getImageUrl = (url) => {
@@ -451,11 +464,40 @@ export default function ClientDashboard() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isAcceptingQuote, setIsAcceptingQuote] = useState(false);
 
+  // Direct Buy Modal State
+  const [buyingProduct, setBuyingProduct] = useState(null);
+  const [buySignatureName, setBuySignatureName] = useState('');
+  const [buyTermsAccepted, setBuyTermsAccepted] = useState(false);
+  const [isBuyingProduct, setIsBuyingProduct] = useState(false);
+
+  // Inspect Design details and secure overlay
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  useEffect(() => {
+    if (!selectedProduct) return;
+    const handlePanic = () => {
+      setSelectedProduct(null);
+    };
+    window.addEventListener('keydown', handlePanic, true);
+    window.addEventListener('blur', handlePanic);
+    document.addEventListener('mouseleave', handlePanic);
+    return () => {
+      window.removeEventListener('keydown', handlePanic, true);
+      window.removeEventListener('blur', handlePanic);
+      document.removeEventListener('mouseleave', handlePanic);
+    };
+  }, [selectedProduct]);
+
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentTarget, setPaymentTarget] = useState(null); // { orderId, type: 'advance' | 'final', amount }
   const [txRef, setTxRef] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
+  // Client Receipt Modal State
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
 
   // Tab count indicators
   const activeOrdersCount = clientOrders.filter(o => !['Completed', 'Cancelled'].includes(o.status)).length;
@@ -512,6 +554,39 @@ export default function ClientDashboard() {
       toast.error(err.message || 'Failed to submit request');
     } finally {
       setIsSubmittingRequest(false);
+    }
+  };
+
+  const handleViewReceipt = async (orderId) => {
+    setReceiptLoading(true);
+    setReceiptData(null);
+    setIsReceiptModalOpen(true);
+    try {
+      const data = await apiFetch(`/api/client/orders/${orderId}/proof`);
+      setReceiptData(data);
+    } catch (err) {
+      toast.error(err.message || 'Failed to load transaction receipt');
+      setIsReceiptModalOpen(false);
+    } finally {
+      setReceiptLoading(false);
+    }
+  };
+
+  const handleDirectBuySubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!buyTermsAccepted || !buySignatureName.trim() || !buyingProduct) return;
+    setIsBuyingProduct(true);
+    try {
+      await buyProductDesign(buyingProduct.id, buySignatureName.trim());
+      toast.success('Direct purchase initiated! Please complete your advance payment.');
+      setBuyingProduct(null);
+      setBuySignatureName('');
+      setBuyTermsAccepted(false);
+      setActiveTab('orders');
+    } catch (err) {
+      toast.error(err.message || 'Direct buy failed');
+    } finally {
+      setIsBuyingProduct(false);
     }
   };
 
@@ -601,14 +676,14 @@ export default function ClientDashboard() {
   };
 
   const handleCancelOrder = async (orderId) => {
-    if (!window.confirm(t('cancelBookingConfirm'))) {
+    if (!window.confirm(t('Are you sure you want to cancel this order?'))) {
       return;
     }
     try {
       await cancelOrder(orderId);
-      toast.success(t('cancelSuccess'));
+      toast.success(t('Order cancelled successfully.'));
     } catch (err) {
-      toast.error(err.response?.data?.detail || err.message || t('cancelError'));
+      toast.error(err.response?.data?.detail || err.message || t('Failed to cancel order.'));
     }
   };
 
@@ -655,32 +730,28 @@ export default function ClientDashboard() {
       {/* Header and Stats */}
       <div className="dashboard-header">
         <div>
-          <h2 className="headline-lg">{t('clientPortal')}</h2>
+          <h2 className="headline-lg">{t('Client Portal')}</h2>
           <p className="body-md text-muted">
-            {language === 'ta' ? 'சரிபார்க்கப்பட்ட கைவினைஞர்களிடமிருந்து சான்றளிக்கப்பட்ட நகைகளை வாங்கவும் அல்லது உங்களுக்கேற்ற வடிவமைப்பை கோரவும்.' : 
-             language === 'te' ? 'ధృవీకరించబడిన కళాకారుల నుండి సర్టిఫైడ్ ఉత్పత్తులను కొనుగోలు చేయండి లేదా కస్టమ్ డిజైన్లను అభ్యర్థించండి.' : 
-             language === 'kn' ? 'ದೃಢೀಕೃತ ಕಲಾಕಾರರಿಂದ ಪ್ರಮಾಣೀಕೃತ ಒಡವೆಗಳನ್ನು ಖರೀದಿಸಿ ಅಥವಾ ಕಸ್ಟಮ್ ವಿನ್ಯಾಸಗಳನ್ನು ವಿನಂತಿಸಿ.' : 
-             language === 'ml' ? 'വെരിഫൈഡ് ആർട്ടിസാൻമാരിൽ നിന്ന് സർട്ടിഫൈഡ് ഉൽപ്പന്നങ്ങൾ വാങ്ങുക അല്ലെങ്കിൽ കസ്റ്റം ഡിസൈനുകൾ ആവശ്യപ്പെടുക.' : 
-             'Purchase certified products or request tailored custom designs from verified artisans.'}
+            {t('Purchase certified products or request tailored custom designs from verified artisans.')}
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => setIsRequestModalOpen(true)}>
-          <Send size={16} /> {t('customRequestBtn')}
+          <Send size={16} /> {t('Custom Request')}
         </button>
       </div>
 
       {clientStats && (
         <div className="stats-row">
           <div className="stat-card">
-            <span className="label-sm">{t('activeEscrows')}</span>
+            <span className="label-sm">{t('Active Orders')}</span>
             <h3 className="display-lg">{activeOrdersCount}</h3>
           </div>
           <div className="stat-card">
-            <span className="label-sm">{t('pendingQuotes')}</span>
+            <span className="label-sm">{t('Pending Proposals')}</span>
             <h3 className="display-lg">{pendingQuotesCount}</h3>
           </div>
           <div className="stat-card">
-            <span className="label-sm">{t('totalSpent')}</span>
+            <span className="label-sm">{t('Total Spent')}</span>
             <h3 className="display-lg text-green">{formatCurrency(clientStats.total_spent)}</h3>
           </div>
         </div>
@@ -692,27 +763,27 @@ export default function ClientDashboard() {
           className={`tab-link ${activeTab === 'marketplace' ? 'active' : ''}`}
           onClick={() => setActiveTab('marketplace')}
         >
-          <ShoppingBag size={18} /> {t('marketplace')}
+          <ShoppingBag size={18} /> {t('Marketplace')}
         </button>
         <button 
           className={`tab-link ${activeTab === 'requests' ? 'active' : ''}`}
           onClick={() => setActiveTab('requests')}
         >
-          <FileText size={18} /> {t('customRequests')}
+          <FileText size={18} /> {t('Custom Requests')}
           {pendingQuotesCount > 0 && <span className="tab-badge gold">{pendingQuotesCount}</span>}
         </button>
         <button 
           className={`tab-link ${activeTab === 'orders' ? 'active' : ''}`}
           onClick={() => setActiveTab('orders')}
         >
-          <Package size={18} /> {t('escrowOrders')}
+          <Package size={18} /> {t('Orders')}
           {activeOrdersCount > 0 && <span className="tab-badge teal">{activeOrdersCount}</span>}
         </button>
         <button 
           className={`tab-link ${activeTab === 'payments' ? 'active' : ''}`}
           onClick={() => setActiveTab('payments')}
         >
-          <CreditCard size={18} /> {t('escrowLedger')}
+          <CreditCard size={18} /> {t('Payments')}
         </button>
       </div>
 
@@ -729,9 +800,9 @@ export default function ClientDashboard() {
             >
               {/* Product Grid */}
               <div className="grid-section">
-                <h3 className="headline-md">{t('inStockDesigns')}</h3>
+                <h3 className="headline-md">{t('In-Stock Designs')}</h3>
                 {marketplaceProducts.length === 0 ? (
-                  <div className="empty-state">{t('noProducts')}</div>
+                  <div className="empty-state">{t('No showroom jewelry registered.')}</div>
                 ) : (
                   <div className="products-grid">
                     {marketplaceProducts.map(product => (
@@ -741,6 +812,8 @@ export default function ClientDashboard() {
                         formatCurrency={formatCurrency}
                         setRequestForm={setRequestForm}
                         setIsRequestModalOpen={setIsRequestModalOpen}
+                        setBuyingProduct={setBuyingProduct}
+                        setSelectedProduct={setSelectedProduct}
                       />
                     ))}
                   </div>
@@ -749,20 +822,20 @@ export default function ClientDashboard() {
 
               {/* Verified Artisans list */}
               <div className="grid-section mt-8">
-                <h3 className="headline-md">{t('masterArtisans')}</h3>
+                <h3 className="headline-md">{t('Verified Artisans')}</h3>
                 {verifiedArtisans.length === 0 ? (
-                  <div className="empty-state">{t('noArtisans')}</div>
+                  <div className="empty-state">{t('No master artisans registered.')}</div>
                 ) : (
                   <div className="artisans-list">
                     {verifiedArtisans.map(artisan => (
                       <div key={artisan.artisan_id} className="card artisan-card">
                         <div className="artisan-header">
                           <div className="artisan-info">
-                            <h4 className="headline-sm">{artisan.business_name}</h4>
-                            <span className="label-sm text-secondary">{artisan.jewellery_specialization}</span>
+                            <h4 className="headline-sm"><DynamicTranslate text={artisan.business_name} /></h4>
+                            <span className="label-sm text-secondary"><DynamicTranslate text={artisan.jewellery_specialization} /></span>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
-                            <span className="badge badge-green">{t('verified')}</span>
+                            <span className="badge badge-green">{t('Verified')}</span>
                             {artisan.reliability_badge && (
                               <span 
                                 className="badge" 
@@ -780,15 +853,15 @@ export default function ClientDashboard() {
                             )}
                           </div>
                         </div>
-                        <p className="body-md text-muted mt-2">{artisan.profile_description}</p>
+                        <p className="body-md text-muted mt-2"><DynamicTranslate text={artisan.profile_description} /></p>
                         
                         {/* Offline contact helper */}
                         <div className="artisan-offline-contact bg-gray-50 border p-3 rounded-lg mt-3 flex flex-column gap-2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                           <span className="label-sm font-semibold text-secondary flex align-center gap-1">
-                            {t('directOfflineBooking')}
+                            {t('Direct Offline Booking')}
                           </span>
                           <span className="body-sm">
-                            {language === 'ta' ? 'கைபேசி எண்' : language === 'te' ? 'ఫోన్ నంబర్' : language === 'kn' ? 'ದೂರವಾಣಿ ಸಂಖ್ಯೆ' : language === 'ml' ? 'ഫോൺ നമ്പർ' : 'Phone'}: <strong>{artisan.phone_number || '+91 98765 43210'}</strong>
+                            {t('Phone')}: <strong>{artisan.phone_number || '+91 98765 43210'}</strong>
                           </span>
                           <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                             <a 
@@ -796,20 +869,20 @@ export default function ClientDashboard() {
                               className="btn btn-secondary btn-sm text-center"
                               style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none', flex: 1, display: 'inline-block' }}
                             >
-                              {t('callNow')}
+                              {t('Call Now')}
                             </a>
                             <a 
-                              href={`sms:${artisan.phone_number || '+919876543210'}?body=${encodeURIComponent(t('directCallBody'))}`}
+                              href={`sms:${artisan.phone_number || '+919876543210'}?body=${encodeURIComponent(t('Hello, I am interested in custom design services.'))}`}
                               className="btn btn-secondary btn-sm text-center"
                               style={{ padding: '6px 12px', fontSize: '12px', textDecoration: 'none', flex: 1, display: 'inline-block' }}
                             >
-                              {t('sendSms')}
+                              {t('Send SMS')}
                             </a>
                           </div>
                         </div>
 
                         <div className="artisan-meta border-t pt-4 mt-4">
-                          <span className="body-sm">{t('location')}: <strong>{artisan.location}</strong></span>
+                          <span className="body-sm">{t('Location')}: <strong><DynamicTranslate text={artisan.location} /></strong></span>
                           <button 
                             className="btn btn-primary btn-sm"
                             onClick={() => {
@@ -820,7 +893,7 @@ export default function ClientDashboard() {
                               setIsRequestModalOpen(true);
                             }}
                           >
-                            {t('hireArtisan')}
+                            {t('Request Design')}
                           </button>
                         </div>
                       </div>
@@ -851,17 +924,17 @@ export default function ClientDashboard() {
                         <div key={req.id} className="card request-list-card">
                           <div className="request-card-header">
                             <div>
-                              <h4 className="headline-sm">{req.jewellery_type}</h4>
-                              <span className="label-sm text-muted">To: {req.artisan_business_name}</span>
+                              <h4 className="headline-sm"><DynamicTranslate text={req.jewellery_type} /></h4>
+                              <span className="label-sm text-muted">To: <DynamicTranslate text={req.artisan_business_name} /></span>
                             </div>
                             <span className={`badge ${req.status === 'accepted' ? 'badge-teal' : req.status === 'rejected' ? 'badge-red' : 'badge-gold'}`}>
                               {req.status}
                             </span>
                           </div>
-                          <p className="body-sm text-muted mt-2">{req.description}</p>
+                          <p className="body-sm text-muted mt-2"><DynamicTranslate text={req.description} /></p>
                           <div className="request-spec-grid mt-4">
                             <div>Budget: <strong>{formatCurrency(req.budget)}</strong></div>
-                            <div>Material: <strong>{req.material_preference}</strong></div>
+                            <div>Material: <strong><DynamicTranslate text={req.material_preference} /></strong></div>
                             <div>Delivery: <strong>{new Date(req.expected_delivery_date).toLocaleDateString()}</strong></div>
                           </div>
                           <ReferenceImageSection url={req.reference_image_url} getImageUrl={getImageUrl} />
@@ -883,7 +956,7 @@ export default function ClientDashboard() {
                           <div className="quote-header">
                             <div>
                               <h4 className="headline-sm">Design Quotation</h4>
-                              <span className="label-sm text-muted">From: {quote.artisan_business_name}</span>
+                              <span className="label-sm text-muted">From: <DynamicTranslate text={quote.artisan_business_name} /></span>
                             </div>
                             <span className={`badge ${quote.status === 'accepted' ? 'badge-green' : quote.status === 'rejected' ? 'badge-red' : 'badge-gold'}`}>
                               {quote.status}
@@ -901,7 +974,7 @@ export default function ClientDashboard() {
                           </div>
                           <div className="quote-notes mt-4">
                             <span className="label-sm text-muted">Artisan Design Notes:</span>
-                            <p className="body-md italic">{quote.design_notes}</p>
+                            <p className="body-md italic"><DynamicTranslate text={quote.design_notes} /></p>
                           </div>
                           <div className="quote-meta border-t pt-4 mt-4" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -938,7 +1011,7 @@ export default function ClientDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="orders-panel"
             >
-              <h3 className="headline-md mb-4">{t('escrowOrders')}</h3>
+              <h3 className="headline-md mb-4">{t('Orders')}</h3>
               {clientOrders.length === 0 ? (
                 <div className="empty-state">No orders active. Accept a quote to begin an order.</div>
               ) : (
@@ -950,7 +1023,7 @@ export default function ClientDashboard() {
                         <div className="order-main-info">
                           <div className="order-title-block">
                             <h4 className="headline-sm">Custom Jewellery Order</h4>
-                            <span className="label-sm text-muted">Order ID: {order.id} • Artisan: {order.artisan_business_name}</span>
+                            <span className="label-sm text-muted">Order ID: {order.id} • Artisan: <DynamicTranslate text={order.artisan_business_name} /></span>
                             <div style={{ display: 'flex', gap: '16px', marginTop: '6px', flexWrap: 'wrap' }}>
                               {order.expected_completion_date && (
                                 <span className="label-sm" style={{ background: '#f5f5f5', padding: '2px 6px', borderRadius: '4px' }}>
@@ -964,7 +1037,7 @@ export default function ClientDashboard() {
                               )}
                               {order.contract_signed && (
                                 <span className="label-sm" style={{ background: 'rgba(74, 185, 122, 0.15)', color: '#2f855a', padding: '2px 6px', borderRadius: '4px' }}>
-                                  📄 Contract Signed by: <strong>{order.contract_signed_by || 'Client'}</strong>
+                                  📄 Contract Signed by: <strong><DynamicTranslate text={order.contract_signed_by || 'Client'} /></strong>
                                 </span>
                               )}
                             </div>
@@ -1081,7 +1154,7 @@ export default function ClientDashboard() {
                             {order.status === 'Delivered' && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(20, 110, 120, 0.3)', fontSize: '13px', fontWeight: '500' }}>
-                                  <span>⏳ <strong>Escrow Protection:</strong> Automatic payment release triggers in <strong>2 days, 23 hours</strong> if not confirmed manually.</span>
+                                  <span>\u23f3 <strong>Escrow Protection:</strong> Automatic payment release triggers in <strong>2 days, 23 hours</strong> if not confirmed manually.</span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                   <button 
@@ -1103,10 +1176,19 @@ export default function ClientDashboard() {
                                     }}
                                     style={{ background: 'var(--color-surface-mixed)', color: 'var(--color-primary)', border: '1px solid var(--color-outline)', display: 'flex', alignItems: 'center', gap: '6px' }}
                                   >
-                                    ⚡ Simulate 3-Day Escrow Release
+                                    \u26a1 Simulate 3-Day Escrow Release
                                   </button>
                                 </div>
                               </div>
+                            )}
+                            {order.status === 'Completed' && (
+                              <button 
+                                className="btn btn-secondary"
+                                onClick={() => handleViewReceipt(order.id)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <Shield size={16} /> View Transaction Receipt & QR
+                              </button>
                             )}
                             {order.delay_status?.eligible_for_refund && order.status !== 'cancelled_artisan_delay' && (
                               <button 
@@ -1123,7 +1205,7 @@ export default function ClientDashboard() {
                                 onClick={() => handleCancelOrder(order.id)}
                                 style={{ background: '#a0aec0', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}
                               >
-                                <XCircle size={16} /> {t('cancelBooking')}
+                                <XCircle size={16} /> {t('Cancel Order')}
                               </button>
                             )}
                           </div>
@@ -1144,7 +1226,7 @@ export default function ClientDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="payments-panel"
             >
-              <h3 className="headline-md mb-4">{t('escrowLedger')}</h3>
+              <h3 className="headline-md mb-4">{t('Payments')}</h3>
               {clientPayments.length === 0 ? (
                 <div className="empty-state">No payment history found.</div>
               ) : (
@@ -1425,6 +1507,185 @@ export default function ClientDashboard() {
           </div>
         )}
       </Modal>
+
+      {/* Direct Buy Checkout Modal */}
+      <Modal isOpen={!!buyingProduct} onClose={() => setBuyingProduct(null)} title="🛒 Direct Design Checkout">
+        {buyingProduct && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'rgba(197, 160, 89, 0.08)', border: '1px solid rgba(197, 160, 89, 0.2)', padding: '14px', borderRadius: '8px' }}>
+              <img 
+                src={buyingProduct.image_url} 
+                alt={buyingProduct.name} 
+                style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '6px' }} 
+              />
+              <div>
+                <h4 style={{ margin: 0, fontWeight: 'bold' }}><DynamicTranslate text={buyingProduct.name} /></h4>
+                <p className="body-sm text-muted" style={{ margin: '4px 0' }}><DynamicTranslate text={buyingProduct.description} /></p>
+                <div style={{ fontWeight: 'bold', color: 'var(--color-secondary)' }}>Price: {formatCurrency(buyingProduct.price)}</div>
+              </div>
+            </div>
+
+            <div className="contract-terms-box" style={{
+              maxHeight: '180px',
+              overflowY: 'auto',
+              border: '1px solid var(--color-outline)',
+              borderRadius: '8px',
+              padding: '14px',
+              background: 'var(--color-surface-mixed)',
+              fontSize: '13px',
+              lineHeight: '1.6',
+              color: 'var(--color-text-body)'
+            }}>
+              <h4 style={{ margin: '0 0 8px 0', color: 'var(--color-primary)', fontWeight: 'bold' }}>PURCHASE AGREEMENT TERMS</h4>
+              <p>This document constitutes a binding digital purchase contract between <strong>Client</strong> and <strong>Artisan (<DynamicTranslate text={buyingProduct.artisan_business_name} />)</strong> for the catalog design.</p>
+              
+              <h5 style={{ margin: '12px 0 4px 0', fontWeight: 'bold', color: 'var(--color-text-heading)' }}>1. Financial Commitment & Escrow</h5>
+              <p>The total value is <strong>{formatCurrency(buyingProduct.price)}</strong>. To initiate the order, the client must pay an advance fee of <strong>{formatCurrency(buyingProduct.price * 0.5)}</strong> (50%) into the CraftShield Secure Escrow. The remaining 50% balance will be secured in escrow upon order completion.</p>
+              
+              <h5 style={{ margin: '12px 0 4px 0', fontWeight: 'bold', color: 'var(--color-text-heading)' }}>2. Material & Production Protections</h5>
+              <p>Because the artisan starts crafting the selected design using precious materials upon booking, <strong>no cancellations or refunds are permitted once production begins</strong>. The 50% advance fee will be forfeited if the client attempts to cancel.</p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', cursor: 'pointer', fontSize: '13px' }}>
+                <input 
+                  type="checkbox" 
+                  checked={buyTermsAccepted}
+                  onChange={(e) => setBuyTermsAccepted(e.target.checked)}
+                  style={{ marginTop: '3px' }}
+                />
+                <span>I read and agree to all terms, including the <strong>deposit forfeiture</strong> and <strong>no cancellation policy</strong>.</span>
+              </label>
+            </div>
+
+            <div className="input-group">
+              <label className="input-label">Type your full name to sign digitally:</label>
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="e.g. John Doe"
+                value={buySignatureName}
+                onChange={(e) => setBuySignatureName(e.target.value)}
+                required 
+              />
+            </div>
+
+            <div className="modal-actions border-t pt-4">
+              <button type="button" className="btn btn-secondary" onClick={() => setBuyingProduct(null)}>Cancel</button>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                onClick={handleDirectBuySubmit}
+                disabled={!buyTermsAccepted || !buySignatureName.trim() || isBuyingProduct}
+              >
+                {isBuyingProduct ? 'Processing Purchase...' : 'Sign Contract & Buy Now'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Transaction Receipt Modal */}
+      <Modal isOpen={isReceiptModalOpen} onClose={() => setIsReceiptModalOpen(false)} title="🛡️ Cryptographic Transaction Receipt & QR">
+        {receiptLoading ? (
+          <div className="empty-state">Loading cryptographic transaction proof...</div>
+        ) : receiptData ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', background: 'rgba(27, 94, 32, 0.08)', border: '1px solid rgba(27, 94, 32, 0.2)', padding: '14px', borderRadius: '8px' }}>
+              <div style={{ background: '#1b5e20', color: 'white', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '18px' }}>\u2713</div>
+              <div>
+                <h4 style={{ margin: 0, color: '#1b5e20', fontWeight: 'bold' }}>Secured Receipt Verification</h4>
+                <p className="body-sm text-muted" style={{ margin: 0 }}>HMAC-SHA256 authenticated by CraftShield Trust Node.</p>
+              </div>
+            </div>
+
+            <div className="request-spec-grid mt-2" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px', background: 'var(--color-surface-mixed)', padding: '14px', borderRadius: '8px', border: '1px solid var(--color-outline)', fontSize: '13px' }}>
+              <div><strong>Proof ID:</strong> <span className="font-mono text-muted">{receiptData.proof.proof_id}</span></div>
+              <div><strong>Order ID:</strong> <span className="font-mono text-muted">{receiptData.proof.order_id}</span></div>
+              <div><strong>Category / Item:</strong> <span>{receiptData.proof.jewel_type}</span></div>
+              <div><strong>Settled Amount:</strong> <strong>{formatCurrency(receiptData.proof.amount)}</strong></div>
+              <div><strong>Completed At:</strong> <span>{new Date(receiptData.proof.completed_at).toLocaleString()}</span></div>
+              <div style={{ overflowX: 'auto' }}><strong>HMAC-SHA256 Signature:</strong> <br/><span className="font-mono text-muted" style={{ fontSize: '11px', wordBreak: 'break-all' }}>{receiptData.proof.signature}</span></div>
+            </div>
+
+            {receiptData.qr_image && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '12px' }}>
+                <img src={receiptData.qr_image} alt="Verification QR Code" style={{ width: '150px', height: '150px', border: '1px solid var(--color-outline)', borderRadius: '8px', padding: '8px', background: 'white' }} />
+                <span className="label-sm text-muted">Scan QR with any device to verify on the public gateway</span>
+              </div>
+            )}
+
+            <div className="modal-actions border-t pt-4" style={{ justifyContent: 'space-between' }}>
+              <a 
+                href={receiptData.verify_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="btn btn-primary"
+                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                Verify on Public Gateway
+              </a>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsReceiptModalOpen(false)}>Close</button>
+            </div>
+          </div>
+        ) : (
+          <div className="empty-state text-red">Failed to load transaction receipt details.</div>
+        )}
+      </Modal>
+
+      {/* Secure Inspect Design Details Modal */}
+      {selectedProduct && (
+        <Modal 
+          isOpen={!!selectedProduct} 
+          onClose={() => setSelectedProduct(null)} 
+          title="Inspect Design"
+        >
+          <div 
+            className="inspect-modal-body" 
+            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+          >
+            <div style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden' }} onContextMenu={e => e.preventDefault()}>
+              <img 
+                src={getImageUrl(selectedProduct.image_url)} 
+                alt={selectedProduct.name} 
+                style={{ width: '100%', maxHeight: '380px', objectFit: 'contain', background: '#f5f5f0', display: 'block', margin: '0 auto', userSelect: 'none', pointerEvents: 'none' }}
+                onDragStart={e => e.preventDefault()}
+              />
+            </div>
+
+            <div>
+              <h3 className="headline-md" style={{ margin: '0 0 6px 0' }}><DynamicTranslate text={selectedProduct.name} /></h3>
+              <p className="body-md text-muted" style={{ margin: '0 0 14px 0' }}><DynamicTranslate text={selectedProduct.description} /></p>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--color-surface-mixed)', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-outline)', fontSize: '13px', marginBottom: '16px' }}>
+                <div><strong>Category:</strong> <DynamicTranslate text={selectedProduct.category} /></div>
+                <div><strong>Material:</strong> <DynamicTranslate text={selectedProduct.material} /></div>
+                <div><strong>Delivery Frame:</strong> {selectedProduct.estimated_delivery_days} {selectedProduct.estimated_delivery_days === 1 ? 'day' : 'days'}</div>
+                <div><strong>Price:</strong> <span style={{ color: 'var(--color-primary)', fontWeight: 'bold' }}>{formatCurrency(selectedProduct.price)}</span></div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ flex: 1 }}
+                  onClick={() => {
+                    setBuyingProduct(selectedProduct);
+                    setSelectedProduct(null);
+                  }}
+                >
+                  <ShoppingBag size={16} /> Buy Design
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => setSelectedProduct(null)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </motion.div>
   );
 }

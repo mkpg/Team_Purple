@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "C:\Users\assas\OneDrive\Desktop\ALL COLLEGE WORK\clg wrk\CodeZap hackton\FINALS\backend\app\services\blockchain.py", line 280, in register_design_onchain
+    tx_receipt = connector.transact(
+                 ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\assas\AppData\Local\Programs\Python\Python311\Lib\site-packages\thor_requests\connect.py", line 544, in transact
+    return self.post_tx(encoded_raw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\assas\AppData\Local\Programs\Python\Python311\Lib\site-packages\thor_requests\connect.py", line 178, in post_tx
+    raise Exception(f"Creation error? HTTP: {r.status_code} {r.text}")
+Exception: Creation error? HTTP: 403 tx rejected: insufficient energy
+

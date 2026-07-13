@@ -20,6 +20,7 @@ class ArtisanRegister(BaseModel):
     business_name: str = Field(..., min_length=2, max_length=150)
     location: str = Field(..., min_length=2, max_length=150)
     profile_description: str = Field(..., min_length=10, max_length=1000)
+    kyc_completed: Optional[bool] = False
 
 class LoginRequest(BaseModel):
     username_or_email: str

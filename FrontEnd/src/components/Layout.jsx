@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Gem, Shield, Hammer, User } from 'lucide-react';
 import { CraftShieldContext } from '../context/CraftShieldContext';
@@ -8,6 +8,41 @@ export default function Layout() {
   const { user, logout, language, setLanguage, t } = useContext(CraftShieldContext);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    // Dynamically load/initialize the Google Translate widget on component mount
+    const initWidget = () => {
+      if (window.google && window.google.translate) {
+        try {
+          // Clear any stale widget containers inside google_translate_element
+          const container = document.getElementById('google_translate_element');
+          if (container) {
+            container.innerHTML = '';
+          }
+          new window.google.translate.TranslateElement({
+            pageLanguage: 'en',
+            includedLanguages: 'en,ta,te,kn,ml',
+            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE
+          }, 'google_translate_element');
+        } catch (e) {
+          console.warn('Google Translate initialization failed:', e);
+        }
+      }
+    };
+
+    // If script isn't in document, add it
+    if (!document.getElementById('google-translate-widget-script')) {
+      window.googleTranslateElementInit = initWidget;
+      const script = document.createElement('script');
+      script.id = 'google-translate-widget-script';
+      script.type = 'text/javascript';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      document.body.appendChild(script);
+    } else {
+      // If already loaded, trigger init directly
+      initWidget();
+    }
+  }, []);
 
   const getRoleIcon = () => {
     if (!user) return <User size={20} />;
@@ -26,7 +61,7 @@ export default function Layout() {
       <aside className="sidebar">
         <div className="logo-container">
           <Gem className="logo-icon" size={32} />
-          <h1 className="headline-md">{t('appName')}</h1>
+          <h1 className="headline-md">{t('CraftShield')}</h1>
         </div>
         
         <div className="sidebar-profile-card">
@@ -52,9 +87,9 @@ export default function Layout() {
           >
             {getRoleIcon()}
             <span className="label-md">
-              {user?.role === 'client' && t('clientPortal')}
-              {user?.role === 'artisan' && t('artisanStudio')}
-              {user?.role === 'admin' && t('adminPanel')}
+              {user?.role === 'client' && t('Client Portal')}
+              {user?.role === 'artisan' && t('Artisan Studio')}
+              {user?.role === 'admin' && t('Admin Panel')}
             </span>
           </button>
           <button
@@ -63,14 +98,14 @@ export default function Layout() {
             type="button"
           >
             <User size={20} />
-            <span className="label-md">Profile</span>
+            <span className="label-md">{t('Profile')}</span>
           </button>
         </nav>
 
         <div className="sidebar-footer">
           <button className="btn-logout" onClick={logout}>
             <LogOut size={18} />
-            <span>{language === 'ta' ? 'வெளியேறு' : language === 'te' ? 'లాగ్ అవుట్' : language === 'kn' ? 'ಲಾಗ್ ಔಟ್' : language === 'ml' ? 'ലോഗ് ഔട്ട്' : 'Log Out'}</span>
+            <span>{t('Log Out')}</span>
           </button>
         </div>
       </aside>
@@ -79,31 +114,11 @@ export default function Layout() {
         <header className="topbar">
           <div className="topbar-welcome">
             <span className="body-md text-muted">
-              {t('securePaymentActive')}
+              {t('Secure Payments Active')}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <select 
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="input-field"
-              style={{
-                width: 'auto',
-                padding: '4px 8px',
-                height: '32px',
-                fontSize: '13px',
-                background: 'rgba(255, 255, 255, 0.8)',
-                color: '#1c1c19',
-                borderRadius: '6px',
-                border: '1px solid var(--color-outline-variant)'
-              }}
-            >
-              <option value="en">English</option>
-              <option value="ta">தமிழ் (Tamil)</option>
-              <option value="te">తెలుగు (Telugu)</option>
-              <option value="kn">ಕನ್ನಡ (Kannada)</option>
-              <option value="ml">മലയാളം (Malayalam)</option>
-            </select>
+            <div id="google_translate_element"></div>
             <div className="user-profile">
               <span className="label-md font-semibold text-muted">
                 {user?.username} ({user?.email})

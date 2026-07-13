@@ -361,3 +361,59 @@ class OrderService:
         
         # Update order status to Completed using client context
         return await OrderService.update_order_status(order_id_str, "Completed", client_user)
+
+    @staticmethod
+    async def create_order_direct_buy(product_id_str: str, client_id_str: str, signed_by: str = None) -> dict:
+        from datetime import timedelta
+        products_coll = get_collection("products")
+        orders_coll = get_collection("orders")
+        
+        try:
+            prod_oid = ObjectId(product_id_str)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid product ID format")
+            
+        product = await products_coll.find_one({"_id": prod_oid})
+        if not product:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+            
+        total_amount = float(product["price"])
+        advance_amount = round(total_amount * 0.5, 2)
+        final_amount = total_amount - advance_amount
+        
+        delivery_days = int(product.get("estimated_delivery_days", 14))
+        expected_date = datetime.utcnow() + timedelta(days=delivery_days)
+        
+        # Resolve artisan_id (handle if string or ObjectId)
+        artisan_id = product["artisan_id"]
+        if isinstance(artisan_id, str):
+            artisan_id = ObjectId(artisan_id)
+            
+        new_order = {
+            "client_id": ObjectId(client_id_str),
+            "artisan_id": artisan_id,
+            "custom_request_id": None,
+            "quotation_id": None,
+            "product_id": prod_oid,
+            "total_amount": total_amount,
+            "advance_amount": advance_amount,
+            "final_amount": final_amount,
+            "expected_completion_date": expected_date,
+            "extended_completion_date": None,
+            "delay_penalty_applied": False,
+            "delay_status": None,
+            "delay_discount_percent": None,
+            "delay_resolution": None,
+            "status": "Advance Payment Pending",
+            "contract_signed": True,
+            "contract_signed_by": signed_by or "Client",
+            "contract_signed_at": datetime.utcnow(),
+            "contract_terms": f"This purchase agreement binds the Client and the Artisan. The client commits to purchasing the specific design: {product['name']} for a total of {total_amount}. Work/shipment commences once the 50% advance escrow payment is secured.",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        res = await orders_coll.insert_one(new_order)
+        new_order["_id"] = res.inserted_id
+        
+        return serialize_doc(new_order)

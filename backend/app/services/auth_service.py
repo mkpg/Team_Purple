@@ -79,15 +79,16 @@ class AuthService:
         
         # Create profile
         profiles_coll = get_collection("artisan_profiles")
+        kyc_done = getattr(artisan_data, "kyc_completed", False)
         profile = {
             "user_id": user_id,
             "business_name": artisan_data.business_name,
             "jewellery_specialization": artisan_data.jewellery_specialization,
             "location": artisan_data.location,
             "profile_description": artisan_data.profile_description,
-            "verification_status": "pending",
-            "verified_by": None,
-            "verified_at": None,
+            "verification_status": "verified" if kyc_done else "pending",
+            "verified_by": "DigiLocker Mock KYC" if kyc_done else None,
+            "verified_at": datetime.utcnow() if kyc_done else None,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }

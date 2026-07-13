@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { CraftShieldContext } from '../context/CraftShieldContext';
 import Modal from '../components/Modal';
+import DynamicTranslate from '../components/DynamicTranslate';
 import './ArtisanDashboard.css';
 
 const containerVariants = {
@@ -40,6 +41,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
 
   const handleAnchorClick = async (e) => {
     e.stopPropagation();
+    if (checkingSimilarity || verifying) return;
     setCheckingSimilarity(true);
     try {
       const simResult = await checkDesignSimilarity(product.id);
@@ -57,6 +59,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
   };
 
   const executeRegistration = async (override = false) => {
+    if (verifying) return;
     setVerifying(true);
     try {
       await registerDesign(product.id, override);
@@ -72,6 +75,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
 
   const handleShowProof = async (e) => {
     e.stopPropagation();
+    if (verifying) return;
     if (proofData) {
       setShowProof(true);
       return;
@@ -99,10 +103,10 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
   };
 
   const getDaysTranslation = () => {
-    if (language === 'ta') return 'நாட்கள்';
-    if (language === 'te') return 'రోజులు';
-    if (language === 'kn') return 'ದಿನಗಳು';
-    if (language === 'ml') return 'ದിവസങ്ങൾ';
+    if (language === 'ta') return '\u0ba8\u0bbe\u0b9f\u0bcd\u0b95\u0bb3\u0bcd';
+    if (language === 'te') return '\u0c30\u0c4b\u0c1c\u0c41\u0c32\u0c41';
+    if (language === 'kn') return '\u0ca6\u0cbf\u0ca8\u0c97\u0cb3\u0cc1';
+    if (language === 'ml') return '\u0ca6\u0d3f\u0d35\u0d38\u0d19\u0d4d\u0d19\u0d7e';
     return 'days';
   };
 
@@ -147,7 +151,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
             CraftShield Protected
           </div>
         </div>
-        <div className="product-category-badge label-sm">{t(product.category)}</div>
+        <div className="product-category-badge label-sm"><DynamicTranslate text={product.category} /></div>
         
         {images.length > 1 && (
           <>
@@ -174,11 +178,12 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
                 zIndex: 10
               }}
             >
-              ‹
+              <span className="notranslate">{'\u2039'}</span>
             </button>
             <button 
               type="button"
               onClick={nextImage}
+              className="notranslate"
               style={{
                 position: 'absolute',
                 right: '8px',
@@ -199,9 +204,10 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
                 zIndex: 10
               }}
             >
-              ›
+              <span className="notranslate">{'\u203a'}</span>
             </button>
             <div 
+              className="notranslate"
               style={{
                 position: 'absolute',
                 bottom: '8px',
@@ -221,11 +227,11 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
         )}
       </div>
       <div className="card-content">
-        <h4 className="headline-sm">{t(product.name)}</h4>
-        <p className="body-sm text-muted line-clamp">{t(product.description)}</p>
+        <h4 className="headline-sm"><DynamicTranslate text={product.name} /></h4>
+        <p className="body-sm text-muted line-clamp"><DynamicTranslate text={product.description} /></p>
         <div className="product-specifications">
-          <span>{t('material')}: <strong>{t(product.material)}</strong></span>
-          <span>{t('delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
+          <span>{t('Material')}: <strong><DynamicTranslate text={product.material} /></strong></span>
+          <span>{t('Delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
         </div>
         <div className="blockchain-provenance-section mt-4 pt-3 border-t">
           {product.design_hash ? (
@@ -233,10 +239,10 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
               className="flex items-center gap-1.5 text-xs font-semibold text-teal bg-teal-light px-2.5 py-1.5 rounded-md border border-teal-variant cursor-pointer hover:opacity-90 transition-opacity"
               onClick={handleShowProof}
               style={{ display: 'inline-flex', cursor: 'pointer', background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', border: '1px solid var(--color-teal)', padding: '4px 8px', borderRadius: '4px', gap: '4px' }}
-              title={t('verifyDesign')}
+              title={t('Verify Design')}
             >
               <Shield size={14} />
-              <span>{t('blockchainVerified')}</span>
+              <span>{t('Blockchain Verified')}</span>
             </div>
           ) : (
             <button
@@ -277,7 +283,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
               disabled={!isVerified}
               style={{ padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
             >
-              <Trash size={12} /> {t('delete')}
+              <Trash size={12} /> {t('Delete')}
             </button>
           </div>
         </div>
@@ -292,8 +298,11 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
         {proofData && (
           <div className="space-y-4 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div className="bg-teal-50 p-4 rounded-lg border border-teal-200 text-teal-800" style={{ background: '#e6f4f1', padding: '12px', borderRadius: '8px', color: '#115e59', border: '1px solid #b2dfdb' }}>
-              <p className="font-semibold" style={{ fontWeight: 'bold' }}>{t('blockchainVerified')}</p>
-              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>{t('blockchainExplanation')}</p>
+              <p className="font-semibold" style={{ fontWeight: 'bold' }}>{t('Blockchain Verified')}</p>
+              <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>{t('Secured via digital fingerprint on public ledger.')}</p>
+              <div style={{ marginTop: '8px', display: 'inline-flex', alignItems: 'center', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', backgroundColor: proofData.simulated ? '#fef3c7' : '#d1fae5', color: proofData.simulated ? '#92400e' : '#065f46', border: proofData.simulated ? '1px solid #f59e0b' : '1px solid #10b981' }}>
+                Status: {proofData.simulated ? 'Simulated Ledger' : 'Live VeChain Testnet'}
+              </div>
             </div>
             
             <div className="space-y-2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -335,7 +344,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
 
             <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <a 
-                href={proofData.explorer_url} 
+                href={proofData.explorer_url || proofData.explorer_link} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="btn btn-primary text-xs"
@@ -471,6 +480,7 @@ export default function ArtisanDashboard() {
     artisanPayments,
     updateArtisanProfile,
     createProduct,
+    updateProduct,
     deleteProduct,
     acceptCustomRequest,
     rejectCustomRequest,
@@ -494,6 +504,11 @@ export default function ArtisanDashboard() {
   const [uploadProgressMessage, setUploadProgressMessage] = useState('');
   const [uploadedImages, setUploadedImages] = useState([]);
   const [editUploadedImages, setEditUploadedImages] = useState([]);
+
+  const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+  const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
+  const [isSubmittingExtension, setIsSubmittingExtension] = useState(false);
+  const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
 
   const handleProductFilesChange = async (e) => {
     const files = e.target.files;
@@ -536,6 +551,7 @@ export default function ArtisanDashboard() {
   };
 
   const [activeTab, setActiveTab] = useState('requests'); // requests, pipeline, catalog, profile
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Quotation Modal State
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -640,6 +656,7 @@ export default function ArtisanDashboard() {
 
   const handleQuoteSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingQuote) return;
     const { quoted_amount, advance_amount, estimated_delivery_date, expected_completion_date, design_notes } = quoteForm;
 
     if (!quoted_amount || !advance_amount || !estimated_delivery_date || !expected_completion_date || !design_notes) {
@@ -652,6 +669,7 @@ export default function ArtisanDashboard() {
       return;
     }
 
+    setIsSubmittingQuote(true);
     try {
       await createQuotation({
         custom_request_id: selectedRequest.id,
@@ -665,11 +683,14 @@ export default function ArtisanDashboard() {
       setIsQuoteModalOpen(false);
     } catch (err) {
       toast.error(err.message || 'Failed to send quotation');
+    } finally {
+      setIsSubmittingQuote(false);
     }
   };
 
   const handleExtensionSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingExtension) return;
     const { extended_completion_date, reason } = extensionForm;
 
     if (!extended_completion_date || !reason) {
@@ -682,12 +703,15 @@ export default function ArtisanDashboard() {
       return;
     }
 
+    setIsSubmittingExtension(true);
     try {
       await requestExtension(selectedExtensionOrder.id, extended_completion_date, reason);
       toast.success('Deadline extension requested! Reliability score adjusted.');
       setIsExtensionModalOpen(false);
     } catch (err) {
       toast.error(err.message || 'Failed to submit extension request');
+    } finally {
+      setIsSubmittingExtension(false);
     }
   };
 
@@ -713,6 +737,7 @@ export default function ArtisanDashboard() {
 
   const handleCreateProduct = async (e) => {
     e.preventDefault();
+    if (isSubmittingProduct) return;
     if (!isVerified) {
       toast.error('Only verified artisans can upload products');
       return;
@@ -727,6 +752,7 @@ export default function ArtisanDashboard() {
     const primaryImage = uploadedImages.length > 0 ? uploadedImages[0] : 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80';
     const secondaryImages = uploadedImages.length > 1 ? uploadedImages.slice(1) : [];
 
+    setIsSubmittingProduct(true);
     try {
       await createProduct({
         name,
@@ -751,6 +777,8 @@ export default function ArtisanDashboard() {
       setUploadedImages([]);
     } catch (err) {
       toast.error(err.message || 'Product upload failed');
+    } finally {
+      setIsSubmittingProduct(false);
     }
   };
 
@@ -772,11 +800,13 @@ export default function ArtisanDashboard() {
 
   const handleUpdateProductSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingProduct) return;
     const { name, description, category, price, material, estimated_delivery_days } = editProductForm;
     
     const primaryImage = editUploadedImages.length > 0 ? editUploadedImages[0] : 'https://images.unsplash.com/photo-1605100804763-247f66126e28?w=500&q=80';
     const secondaryImages = editUploadedImages.length > 1 ? editUploadedImages.slice(1) : [];
 
+    setIsSubmittingProduct(true);
     try {
       await updateProduct(selectedProduct.id, {
         name,
@@ -792,6 +822,8 @@ export default function ArtisanDashboard() {
       setIsEditModalOpen(false);
     } catch (err) {
       toast.error(err.message || 'Product update failed');
+    } finally {
+      setIsSubmittingProduct(false);
     }
   };
 
@@ -808,20 +840,28 @@ export default function ArtisanDashboard() {
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    if (isSubmittingProfile) return;
+    setIsSubmittingProfile(true);
     try {
       await updateArtisanProfile(profileForm);
       toast.success('Artisan profile updated successfully!');
     } catch (err) {
       toast.error(err.message || 'Failed to update profile');
+    } finally {
+      setIsSubmittingProfile(false);
     }
   };
 
   const handleOrderStatusAdvance = async (orderId, currentStatus, targetStatus) => {
+    if (isUpdatingStatus) return;
+    setIsUpdatingStatus(true);
     try {
       await updateOrderStatus(orderId, targetStatus);
       toast.success(`Order state advanced to ${targetStatus}`);
     } catch (err) {
       toast.error(err.message || 'Status transition denied by ledger rules.');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -840,21 +880,21 @@ export default function ArtisanDashboard() {
       {/* Header and Stats */}
       <div className="dashboard-header">
         <div>
-          <h2 className="headline-lg">Artisan Studio Dashboard</h2>
-          <p className="body-md text-muted">Manage bespoke jewelry requests, track production stages, and update your public showroom catalog.</p>
+          <h2 className="headline-lg">{t('Artisan Studio Dashboard')}</h2>
+          <p className="body-md text-muted">{t('Manage bespoke jewelry requests, track production stages, and update your public showroom catalog.')}</p>
         </div>
         <button 
           className="btn btn-primary"
           onClick={() => {
             if (!isVerified) {
-              toast.error('Product uploads are restricted. Profile verification is pending.');
+              toast.error(t('Product uploads are restricted. Profile verification is pending.'));
               return;
             }
             setIsProductModalOpen(true);
           }}
           disabled={!isVerified}
         >
-          <Plus size={16} /> Add Product
+          <Plus size={16} /> {t('Add Product')}
         </button>
       </div>
 
@@ -862,8 +902,8 @@ export default function ArtisanDashboard() {
         <div className="card alert-card-verification">
           <Shield size={24} className="text-secondary" />
           <div>
-            <h4 className="headline-sm text-secondary">Awaiting Verification Review</h4>
-            <p className="body-sm text-muted">Your artisan profile has been submitted. During this evaluation, product catalogs, quotation dispatches, and order processing actions are restricted. The administrator has been notified.</p>
+            <h4 className="headline-sm text-secondary">{t('Awaiting Verification Review')}</h4>
+            <p className="body-sm text-muted">{t('Your artisan profile has been submitted. During this evaluation, product catalogs, quotation dispatches, and order processing actions are restricted. The administrator has been notified.')}</p>
           </div>
         </div>
       )}
@@ -871,27 +911,27 @@ export default function ArtisanDashboard() {
       {artisanStats && (
         <div className="stats-row">
           <div className="stat-card">
-            <span className="label-sm">Active Orders</span>
+            <span className="label-sm">{t('Active Orders')}</span>
             <h3 className="display-lg">{activeOrdersCount}</h3>
           </div>
           <div className="stat-card">
-            <span className="label-sm">Pending Proposals</span>
+            <span className="label-sm">{t('Pending Proposals')}</span>
             <h3 className="display-lg">{pendingRequestsCount}</h3>
           </div>
           <div className="stat-card">
-            <span className="label-sm">Revenue Cleared</span>
+            <span className="label-sm">{t('Revenue Cleared')}</span>
             <h3 className="display-lg text-green">{formatCurrency(artisanStats.total_earned)}</h3>
           </div>
           <div className="stat-card">
-            <span className="label-sm">Reliability Score</span>
+            <span className="label-sm">{t('Reliability Score')}</span>
             <h3 className="display-lg text-primary">{(user?.reliability_profile?.reliability_score ?? 100.0).toFixed(1)}%</h3>
             {user?.reliability_profile?.reliability_score !== undefined && (
               <span className="label-sm text-muted" style={{ display: 'block', marginTop: '2px', fontSize: '11px' }}>
-                🛡️ Badge: <strong>{
-                  user.reliability_profile.reliability_score >= 95 ? 'Reliable' : 
-                  user.reliability_profile.reliability_score >= 85 ? 'Usually On Time' : 
-                  user.reliability_profile.reliability_score >= 70 ? 'Needs Improvement' : 
-                  'Critical Overdue Risk'
+                🛡️ {t('Badge')}: <strong>{
+                  user.reliability_profile.reliability_score >= 95 ? t('Reliable') : 
+                  user.reliability_profile.reliability_score >= 85 ? t('Usually On Time') : 
+                  user.reliability_profile.reliability_score >= 70 ? t('Needs Improvement') : 
+                  t('Critical Overdue Risk')
                 }</strong>
               </span>
             )}
@@ -905,27 +945,27 @@ export default function ArtisanDashboard() {
           className={`tab-link ${activeTab === 'requests' ? 'active' : ''}`}
           onClick={() => setActiveTab('requests')}
         >
-          <Clipboard size={18} /> Request Board
+          <Clipboard size={18} /> {t('Request Board')}
           {pendingRequestsCount > 0 && <span className="tab-badge gold">{pendingRequestsCount}</span>}
         </button>
         <button 
           className={`tab-link ${activeTab === 'pipeline' ? 'active' : ''}`}
           onClick={() => setActiveTab('pipeline')}
         >
-          <Hammer size={18} /> Production Pipeline
+          <Hammer size={18} /> {t('Production Pipeline')}
           {activeOrdersCount > 0 && <span className="tab-badge teal">{activeOrdersCount}</span>}
         </button>
         <button 
           className={`tab-link ${activeTab === 'catalog' ? 'active' : ''}`}
           onClick={() => setActiveTab('catalog')}
         >
-          <Package size={18} /> Catalog Management
+          <Package size={18} /> {t('Catalog Management')}
         </button>
         <button 
           className={`tab-link ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
-          <Edit size={18} /> Studio Profile
+          <Edit size={18} /> {t('Studio Profile')}
         </button>
       </div>
 
@@ -1125,14 +1165,14 @@ export default function ArtisanDashboard() {
                               <button 
                                 className="btn btn-secondary btn-sm"
                                 onClick={() => handleOrderStatusAdvance(order.id, order.status, 'Design in Progress')}
-                                disabled={!isVerified}
+                                disabled={!isVerified || isUpdatingStatus}
                               >
                                 Begin Design Phase
                               </button>
                               <button 
                                 className="btn btn-primary btn-sm"
                                 onClick={() => handleOrderStatusAdvance(order.id, order.status, 'Production Started')}
-                                disabled={!isVerified}
+                                disabled={!isVerified || isUpdatingStatus}
                               >
                                 Start Production
                               </button>
@@ -1146,7 +1186,7 @@ export default function ArtisanDashboard() {
                                 style={{ border: '1px solid var(--color-outline-variant)', width: 'auto', background: '#fff' }}
                                 value={order.status}
                                 onChange={(e) => handleOrderStatusAdvance(order.id, order.status, e.target.value)}
-                                disabled={!isVerified}
+                                disabled={!isVerified || isUpdatingStatus}
                               >
                                 <option value={order.status}>-- Advance Stage --</option>
                                 <option value="Design in Progress">Design in Progress</option>
@@ -1166,7 +1206,7 @@ export default function ArtisanDashboard() {
                             <button 
                               className="btn btn-primary btn-sm"
                               onClick={() => handleOrderStatusAdvance(order.id, order.status, 'Delivered')}
-                              disabled={!isVerified}
+                              disabled={!isVerified || isUpdatingStatus}
                             >
                               Mark as Delivered / Dispatched
                             </button>
@@ -1207,14 +1247,10 @@ export default function ArtisanDashboard() {
               exit={{ opacity: 0, y: -10 }}
               className="catalog-panel"
             >
-              <h3 className="headline-md mb-4">{language === 'ta' ? 'காட்சி அறை நகைகளின் பட்டியல்' : language === 'te' ? 'షోరూమ్ జ్యువెలరీ కేటలాగ్' : language === 'kn' ? 'ಶೋರೂಮ್ ಒಡವೆಗಳ ಕ್ಯಾಟಲಾಗ್' : language === 'ml' ? 'ഷോറൂം ജ്വല്ലറി കാറ്റലോഗ്' : 'Showroom Jewelry Catalog'}</h3>
+              <h3 className="headline-md mb-4">{t('Showroom Jewelry Catalog')}</h3>
               {artisanProducts.length === 0 ? (
                 <div className="empty-state">
-                  {language === 'ta' ? 'தயாரிப்புகள் எதுவும் பதிவு செய்யப்படவில்லை. உங்கள் பட்டியலை விரிவாக்க "தயாரிப்பு சேர்க்க" என்பதை கிளிக் செய்யவும்.' :
-                   language === 'te' ? 'ఉత్పత్తులు ఏవీ నమోదు కాలేదు. మీ కేటలాగ్‌ను విస్తరించడానికి "ఉత్పత్తిని జోడించు" క్లిಕ್ చేయండి.' :
-                   language === 'kn' ? 'ಯಾವುದೇ ಉತ್ಪನ್ನಗಳು ನೊಂದಾಯಿಸಲ್ಪಟ್ಟಿಲ್ಲ. ನಿಮ್ಮ ಕ್ಯಾಟಲಾಗ್ ವಿಸ್ತರಿಸಲು "ಉತ್ಪನ್ನ ಸೇರಿಸಿ" ಕ್ಲಿಕ್ ಮಾಡಿ.' :
-                   language === 'ml' ? 'ഉൽപ്പന്നങ്ങളൊന്നും രജിസ്റ്റർ ചെയ്തിട്ടില്ല. നിങ്ങളുടെ കാറ്റലോഗ് വിപുലീകരിക്കാൻ "ഉൽപ്പന്നം ചേർക്കുക" ക്ലിക്ക് ചെയ്യുക.' :
-                   'No products registered. Click "Add Product" to expand your catalog.'}
+                  {t('No products registered. Click "Add Product" to expand your catalog.')}
                 </div>
               ) : (
                 <div className="products-grid">
@@ -1288,8 +1324,8 @@ export default function ArtisanDashboard() {
                     />
                   </div>
 
-                  <button type="submit" className="btn btn-primary w-full mt-4">
-                    Save Studio Settings
+                  <button type="submit" className="btn btn-primary w-full mt-4" disabled={isSubmittingProfile}>
+                    {isSubmittingProfile ? 'Saving Settings...' : 'Save Studio Settings'}
                   </button>
                 </form>
               </div>
@@ -1367,8 +1403,10 @@ export default function ArtisanDashboard() {
             </div>
 
             <div className="modal-actions border-t pt-4">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsQuoteModalOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Dispatch Quote</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsQuoteModalOpen(false)} disabled={isSubmittingQuote}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={isSubmittingQuote}>
+                {isSubmittingQuote ? 'Dispatched...' : 'Dispatch Quote'}
+              </button>
             </div>
           </form>
         )}
@@ -1499,7 +1537,7 @@ export default function ArtisanDashboard() {
                       }}
                       title="Remove image"
                     >
-                      ✕
+                      \u2715
                     </button>
                     {idx === 0 ? (
                       <span style={{
@@ -1562,8 +1600,10 @@ export default function ArtisanDashboard() {
           </div>
 
           <div className="modal-actions border-t pt-4">
-            <button type="button" className="btn btn-secondary" onClick={() => setIsProductModalOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Upload to Catalog</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setIsProductModalOpen(false)} disabled={isSubmittingProduct}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={isSubmittingProduct}>
+              {isSubmittingProduct ? 'Uploading...' : 'Upload to Catalog'}
+            </button>
           </div>
         </form>
       </Modal>
@@ -1689,7 +1729,7 @@ export default function ArtisanDashboard() {
                         }}
                         title="Remove image"
                       >
-                        ✕
+                        \u2715
                       </button>
                       {idx === 0 ? (
                         <span style={{
@@ -1751,8 +1791,10 @@ export default function ArtisanDashboard() {
             </div>
 
             <div className="modal-actions border-t pt-4">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Save Changes</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsEditModalOpen(false)} disabled={isSubmittingProduct}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={isSubmittingProduct}>
+                {isSubmittingProduct ? 'Saving...' : 'Save Changes'}
+              </button>
             </div>
           </form>
         )}
@@ -1792,8 +1834,10 @@ export default function ArtisanDashboard() {
             </div>
 
             <div className="modal-actions border-t pt-4">
-              <button type="button" className="btn btn-secondary" onClick={() => setIsExtensionModalOpen(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" style={{ background: 'var(--color-teal)' }}>Submit Extension</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setIsExtensionModalOpen(false)} disabled={isSubmittingExtension}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={isSubmittingExtension} style={{ background: 'var(--color-teal)' }}>
+                {isSubmittingExtension ? 'Submitting...' : 'Submit Extension'}
+              </button>
             </div>
           </form>
         )}

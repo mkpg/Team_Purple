@@ -265,6 +265,22 @@ async def reject_quotation(quotation_id: str, current_user: dict = Depends(requi
     
     return {"message": "Quotation rejected successfully"}
 
+@router.get("/orders/{order_id}/proof")
+async def get_client_order_transaction_proof(order_id: str, current_user: dict = Depends(require_client)):
+    """Return the client's copy of a verified transaction receipt and QR code."""
+    db = get_collection("orders").database
+    from app.services.transaction_proof import get_order_proof_response
+    return await get_order_proof_response(db, order_id, owner_filter={"client_id": current_user["_id"]})
+
+class DirectBuyPayload(BaseModel):
+    signature_name: str
+
+@router.post("/products/{product_id}/buy")
+async def buy_product_design(product_id: str, payload: DirectBuyPayload, current_user: dict = Depends(require_client)):
+    """Purchase a specific catalog design directly, creating a custom escrow order with signed purchase agreement."""
+    from app.services.order_service import OrderService
+    return await OrderService.create_order_direct_buy(product_id, str(current_user["_id"]), payload.signature_name)
+
 @router.get("/orders")
 async def get_orders(current_user: dict = Depends(require_client)):
     """Fetch all orders for the client."""
@@ -403,3 +419,15 @@ async def get_payments(current_user: dict = Depends(require_client)):
     payments_coll = get_collection("payments")
     payments = await payments_coll.find({"client_id": current_user["_id"]}).sort("created_at", -1).to_list(length=100)
     return serialize_list(payments)
+
+    return await get_order_proof_response(db, order_id, owner_filter={"client_id": current_user["_id"]})
+
+class DirectBuyPayload(BaseModel):
+    signature_name: str
+
+@router.post("/products/{product_id}/buy")
+async def buy_product_design(product_id: str, payload: DirectBuyPayload, current_user: dict = Depends(require_client)):
+    """Purchase a specific catalog design directly, creating a custom escrow order with signed purchase agreement."""
+    from app.services.order_service import OrderService
+    return await OrderService.create_order_direct_buy(product_id, str(current_user["_id"]), payload.signature_name)
+

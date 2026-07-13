@@ -7,7 +7,7 @@ echo ===================================================
 echo.
 
 echo [1/2] Starting FastAPI Backend Server...
-start "CraftShield Backend" cmd /k "cd /d ""%ROOT_DIR%backend"" && call venv\Scripts\activate.bat && uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
+start "CraftShield Backend" cmd /k "cd /d ""%ROOT_DIR%backend"" && C:\Users\assas\AppData\Local\Programs\Python\Python311\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
 
 echo [2/2] Starting React-Vite Frontend Dev Server...
 start "CraftShield Frontend" cmd /k "cd /d ""%ROOT_DIR%FrontEnd"" && npm run dev"

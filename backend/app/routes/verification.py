@@ -24,28 +24,30 @@ def _check_rate_limit(request: Request) -> None:
 
 @router.get("/verify/{proof_id}")
 async def verify_transaction_proof(proof_id: str, request: Request):
-    """Public verification endpoint for QR transaction receipts."""
+    """Public verification endpoint for QR transaction receipts, supporting proof_id and order_id."""
     _check_rate_limit(request)
     db = get_collection("transaction_proofs").database
-    verified = await get_verified_proof(db, proof_id)
-    if not verified["valid"]:
+    from app.services.transaction_proof import lookup_proof
+    res = await lookup_proof(db, proof_id)
+    if not res.get("found") or not res.get("valid"):
         return {
             "valid": False,
             "message": "Could not verify this proof.",
             "payload": None,
         }
 
-    payload = verified["payload"]
+    proof_data = res["proof"]
+    payload = proof_data.get("payload") or proof_data
     return {
         "valid": True,
         "message": "Verified transaction receipt.",
         "payload": {
-            "proof_id": payload["proof_id"],
-            "order_id": payload["order_id"],
-            "jewel_type": payload["jewel_type"],
-            "amount": payload["amount"],
-            "currency": payload["currency"],
-            "completed_at": payload["completed_at"],
+            "proof_id": payload.get("proof_id"),
+            "order_id": payload.get("order_id"),
+            "jewel_type": payload.get("jewel_type"),
+            "amount": payload.get("amount"),
+            "currency": payload.get("currency"),
+            "completed_at": payload.get("completed_at"),
         },
         "notice": "This verifies that a CraftShield transaction record exists and has not been altered. It does not prove the physical jewellery's material authenticity.",
     }
@@ -76,7 +78,7 @@ async def get_product_design_proof(product_id: str):
     artisan = await users_coll.find_one({"_id": product["artisan_id"]})
 
     explorer_link = None
-    if not product.get("blockchain_simulated", False):
+    if product.get("blockchain_tx_id"):
         explorer_link = f"https://explore.vechain.org/#/testnet/tx/{product.get('blockchain_tx_id')}"
 
     return {
@@ -88,6 +90,7 @@ async def get_product_design_proof(product_id: str):
         "design_hash": product.get("design_hash"),
         "simulated": product.get("blockchain_simulated", False),
         "explorer_link": explorer_link,
+        "explorer_url": explorer_link,
         "artisan_name": artisan["full_name"] if artisan else "Unknown Artisan",
         "product_name": product["name"],
         "verified_onchain": verified is not None,

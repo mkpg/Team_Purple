@@ -220,12 +220,12 @@ async def verify_design_onchain(design_hash: str) -> Optional[dict]:
             
             if not response.get("reverted") and "decoded" in response:
                 decoded = response["decoded"]
-                artisan_addr = decoded[0]
-                timestamp = decoded[1]
-                product_id = decoded[2]
-                image_url = decoded[3]
+                artisan_addr = decoded.get("0") or decoded.get(0)
+                timestamp = decoded.get("1") or decoded.get(1)
+                product_id = decoded.get("2") or decoded.get(2)
+                image_url = decoded.get("3") or decoded.get(3)
                 
-                if timestamp > 0:
+                if timestamp and timestamp > 0:
                     return {
                         "artisan_address": artisan_addr,
                         "registered_timestamp": timestamp,
@@ -287,7 +287,16 @@ async def register_design_onchain(design_hash: str, artisan_id: str, product_id:
                 )
                 
                 tx_id = tx_receipt.get("meta", {}).get("txID") or tx_receipt.get("id")
-                block_number = tx_receipt.get("meta", {}).get("blockNumber", 0)
+                block_number = 0
+                
+                if tx_id:
+                    try:
+                        # Wait for the transaction to be mined (usually takes a few seconds)
+                        mined_receipt = connector.wait_for_tx_receipt(tx_id, timeout=15)
+                        if mined_receipt and "meta" in mined_receipt:
+                            block_number = mined_receipt["meta"].get("blockNumber", 0)
+                    except Exception as wait_err:
+                        logger.warning(f"Error waiting for VeChain transaction receipt: {wait_err}")
                 
                 if tx_id:
                     return {
@@ -298,6 +307,14 @@ async def register_design_onchain(design_hash: str, artisan_id: str, product_id:
                         "simulated": False
                     }
         except Exception as e:
+            import traceback
+            error_msg = traceback.format_exc()
+            logger.error(f"Real VeChain transaction failed: {error_msg}")
+            try:
+                with open("backend_error.txt", "w") as f:
+                    f.write(error_msg)
+            except Exception:
+                pass
             logger.warning(f"Real VeChain transaction failed ({e}). Falling back to simulated ledger registration.")
 
     # 2. Fallback to mock blockchain database collection

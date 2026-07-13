@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback, useRef } from 'react';
-import { translations } from '../utils/translations';
+import { setGoogleTranslateLanguage, startTranslationSnapshotting, applyOfflineTranslations, isOffline, tagDOMWithOriginalText } from '../utils/googleTranslator';
 
 export const CraftShieldContext = createContext();
 
@@ -9,19 +9,6 @@ export const CraftShieldProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('token') || null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // Localization state
-  const [language, setLangState] = useState(() => localStorage.getItem('language') || 'en');
-
-  const setLanguage = (lang) => {
-    localStorage.setItem('language', lang);
-    setLangState(lang);
-  };
-
-  const t = useCallback((key) => {
-    const langDict = translations[language] || translations['en'];
-    return langDict[key] || translations['en'][key] || key;
-  }, [language]);
 
   // Client states
   const [clientStats, setClientStats] = useState(null);
@@ -48,6 +35,27 @@ export const CraftShieldProvider = ({ children }) => {
   const [adminOrders, setAdminOrders] = useState([]);
   const [adminPayments, setAdminPayments] = useState([]);
   const [adminDisputes, setAdminDisputes] = useState([]);
+  
+  // Localization state
+  const [language, setLangState] = useState(() => {
+    if (isOffline()) return 'en';
+    return localStorage.getItem('language') || 'en';
+  });
+  const snapshotCleanupRef = useRef(null);
+
+  const setLanguage = (lang) => {
+    localStorage.setItem('language', lang);
+    setLangState(lang);
+    window.dispatchEvent(new Event('languageChanged'));
+  };
+
+  // Translation-related triggers are disabled to run native Google Translate widget instead
+
+  // Dynamic t() - offline translation is disabled, so we always return English keys
+  const t = useCallback((key) => {
+    if (!key) return '';
+    return String(key);
+  }, []);
 
   // Base API Fetch Wrapper
   const apiFetch = useCallback(async (path, options = {}) => {
@@ -102,24 +110,6 @@ export const CraftShieldProvider = ({ children }) => {
   useEffect(() => {
     userRef.current = user;
   }, [user]);
-
-  // Fetch current user details
-  const fetchMe = useCallback(async () => {
-    try {
-      setLoading(true);
-      const meData = await apiFetch('/api/auth/me');
-      setUser(meData);
-      return meData;
-    } catch (err) {
-      console.error("Error fetching current user profile", err);
-      // Clean up token if invalid
-      localStorage.removeItem('token');
-      setToken(null);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [apiFetch]);
 
   // Load appropriate data based on role
   const refreshData = useCallback(async (currentUser) => {
@@ -183,18 +173,34 @@ export const CraftShieldProvider = ({ children }) => {
     }
   }, [apiFetch]);
 
+  // Fetch current user details and refresh metadata
+  const fetchMe = useCallback(async () => {
+    try {
+      setLoading(true);
+      const meData = await apiFetch('/api/auth/me');
+      setUser(meData);
+      // Wait for data hydration before completing loading state!
+      await refreshData(meData);
+      return meData;
+    } catch (err) {
+      console.error("Error fetching current user profile", err);
+      // Clean up token if invalid
+      localStorage.removeItem('token');
+      setToken(null);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiFetch, refreshData]);
+
   // Handle auto-load on boot
   useEffect(() => {
     if (token) {
-      fetchMe().then((currUser) => {
-        if (currUser) {
-          refreshData(currUser);
-        }
-      });
+      fetchMe();
     } else {
       setLoading(false);
     }
-  }, [token, fetchMe, refreshData]);
+  }, [token, fetchMe]);
 
   // Auth Operations
   const login = async (usernameOrEmail, password, role) => {
@@ -345,6 +351,15 @@ export const CraftShieldProvider = ({ children }) => {
     return res;
   };
 
+  const buyProductDesign = async (productId, signatureName) => {
+    const res = await apiFetch(`/api/client/products/${productId}/buy`, {
+      method: 'POST',
+      body: JSON.stringify({ signature_name: signatureName })
+    });
+    await refreshData();
+    return res;
+  };
+
   // Artisan actions
   const updateArtisanProfile = async (profileData) => {
     const res = await apiFetch('/api/artisan/profile', {
@@ -452,7 +467,7 @@ export const CraftShieldProvider = ({ children }) => {
   };
 
   const checkDesignSimilarity = async (productId) => {
-    return await apiFetch(`/api/artisan/products/${productId}/check-design-similarity`, {
+    return await apiFetch(`/api/artisan/products/${productId}/check-similarity`, {
       method: 'POST'
     });
   };
@@ -467,7 +482,7 @@ export const CraftShieldProvider = ({ children }) => {
   };
 
   const getDesignProof = async (productId) => {
-    return await apiFetch(`/api/artisan/products/${productId}/design-proof`);
+    return await apiFetch(`/products/${productId}/design-proof`);
   };
 
   // Admin actions
@@ -534,6 +549,7 @@ export const CraftShieldProvider = ({ children }) => {
       registerArtisan,
       logout,
       refreshData,
+      apiFetch,
       
       // Localization
       language,
@@ -559,6 +575,7 @@ export const CraftShieldProvider = ({ children }) => {
       cancelOrder,
       cancelOrderDueToDelay,
       autoReleaseOrder,
+      buyProductDesign,
       verifyPublicProof,
 
       // Artisan state

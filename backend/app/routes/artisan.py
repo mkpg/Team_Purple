@@ -461,9 +461,15 @@ async def get_payments_received(current_user: dict = Depends(require_artisan)):
     payments = await payments_coll.find({"artisan_id": current_user["_id"]}).sort("created_at", -1).to_list(length=100)
     return serialize_list(payments)
 
+from pydantic import BaseModel
+
+class RegisterDesignRequest(BaseModel):
+    override_similarity_warning: bool = False
+
 @router.post("/products/{product_id}/register-design")
-async def register_product_design(product_id: str, override: bool = False, current_user: dict = Depends(require_verified_artisan)):
+async def register_product_design(product_id: str, payload: RegisterDesignRequest = None, current_user: dict = Depends(require_verified_artisan)):
     """Anchor the design fingerprint/hash of a product on-chain (using real or simulated ledger)."""
+    override = payload.override_similarity_warning if payload else False
     products_coll = get_collection("products")
     try:
         prod_oid = ObjectId(product_id)
@@ -496,7 +502,12 @@ async def register_product_design(product_id: str, override: bool = False, curre
         computed = await _build_image_fingerprint_or_none(product.get("image_url"))
         if not computed:
             # Fallback fingerprint if upload isn't readable
-            dummy_bytes = f"fakedesignimagedata_{product_id}".encode("utf-8")
+            import io
+            from PIL import Image
+            img = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            dummy_bytes = buf.getvalue()
             from app.services.image_hashing import build_fingerprint
             computed = build_fingerprint(dummy_bytes)
         

@@ -1,8 +1,11 @@
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Gem } from 'lucide-react';
+import { initScreenshotProtection } from './utils/screenshotProtection';
+import { initGoogleTranslator, setGoogleTranslateLanguage } from './utils/googleTranslator';
 import { CraftShieldProvider, CraftShieldContext } from './context/CraftShieldContext';
+import { TranslationProvider } from './context/TranslationContext';
 import Layout from './components/Layout';
 import ArtisanDashboard from './pages/ArtisanDashboard';
 import ClientDashboard from './pages/ClientDashboard';
@@ -61,32 +64,38 @@ function MainApp() {
 }
 
 function App() {
+  useEffect(() => {
+    return initScreenshotProtection();
+  }, []);
+
   return (
     <CraftShieldProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/verify/:proofId" element={<VerifyProof />} />
-          <Route path="/*" element={<MainApp />} />
-        </Routes>
-      </BrowserRouter>
-      <Toaster 
-        position="bottom-right"
-        toastOptions={{
-          style: {
-            background: '#ffffff',
-            color: '#1c1c19',
-            fontFamily: 'Inter, sans-serif',
-            boxShadow: '0 4px 20px rgba(10, 25, 47, 0.1)',
-            borderRadius: '8px',
-          },
-          success: {
-            iconTheme: {
-              primary: '#2d5a5a',
-              secondary: '#ffffff',
+      <TranslationProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/verify/:proofId" element={<VerifyProof />} />
+            <Route path="/*" element={<MainApp />} />
+          </Routes>
+        </BrowserRouter>
+        <Toaster 
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#ffffff',
+              color: '#1c1c19',
+              fontFamily: 'Inter, sans-serif',
+              boxShadow: '0 4px 20px rgba(10, 25, 47, 0.1)',
+              borderRadius: '8px',
             },
-          },
-        }}
-      />
+            success: {
+              iconTheme: {
+                primary: '#2d5a5a',
+                secondary: '#ffffff',
+              },
+            },
+          }}
+        />
+      </TranslationProvider>
     </CraftShieldProvider>
   );
 }
