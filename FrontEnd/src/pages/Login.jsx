@@ -3,15 +3,18 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Gem, LogIn, UserPlus } from 'lucide-react';
 import { CraftShieldContext } from '../context/CraftShieldContext';
+import DigiLockerSandbox from '../components/DigiLockerSandbox';
 import './Login.css';
 
 export default function Login() {
   const { login, registerClient, registerArtisan } = useContext(CraftShieldContext);
   const [isRegister, setIsRegister] = useState(false);
   
-  // Login Form State
   const [loginRole, setLoginRole] = useState('client'); // client, artisan, admin
   const [loginCreds, setLoginCreds] = useState({ username: '', password: '' });
+  
+  // KYC Modal State
+  const [showKYC, setShowKYC] = useState(false);
   
   // Register Form State
   const [registerRole, setRegisterRole] = useState('client'); // client, artisan
@@ -72,26 +75,38 @@ export default function Login() {
           return;
         }
 
-        await registerArtisan({
-          full_name,
-          username,
-          email,
-          phone_number,
-          password,
-          role: 'artisan',
-          business_name,
-          jewellery_specialization,
-          location,
-          profile_description
-        });
-        
-        toast.success('Artisan registration submitted! Access is pending administrator verification.');
-        setIsRegister(false);
-        setLoginRole('artisan');
-        setLoginCreds({ username, password });
+        // Trigger KYC Sandbox first instead of registering immediately
+        setShowKYC(true);
       }
     } catch (err) {
       toast.error(err.message || 'Registration failed');
+    }
+  };
+
+  const handleKYCComplete = async () => {
+    setShowKYC(false);
+    const { full_name, username, email, phone_number, password, business_name, jewellery_specialization, location, profile_description } = registerData;
+    
+    try {
+      await registerArtisan({
+        full_name,
+        username,
+        email,
+        phone_number,
+        password,
+        role: 'artisan',
+        business_name,
+        jewellery_specialization,
+        location,
+        profile_description
+      });
+      
+      toast.success('Artisan registration submitted! Access is pending administrator verification.');
+      setIsRegister(false);
+      setLoginRole('artisan');
+      setLoginCreds({ username, password });
+    } catch (err) {
+      toast.error(err.message || 'Registration failed after KYC');
     }
   };
 
@@ -103,6 +118,14 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      {/* KYC Modal */}
+      {showKYC && (
+        <DigiLockerSandbox 
+          onComplete={handleKYCComplete} 
+          onCancel={() => setShowKYC(false)} 
+        />
+      )}
+
       <div className="login-backdrop"></div>
       <motion.div 
         className="login-card"
