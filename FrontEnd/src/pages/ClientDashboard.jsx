@@ -19,8 +19,8 @@ const itemVariants = {
   visible: { y: 0, opacity: 1 }
 };
 
-export function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen, setBuyingProduct, setSelectedProduct }) {
-  const { t, language, API_BASE_URL, getDesignProof } = useContext(CraftShieldContext);
+export function MarketplaceProductCard({ product, formatCurrency, setRequestForm, setIsRequestModalOpen, setBuyingProduct, setSelectedProduct, onDeleteSuccess }) {
+  const { t, language, API_BASE_URL, getDesignProof, user, token } = useContext(CraftShieldContext);
 
 
   const getImageUrl = (url) => {
@@ -71,6 +71,23 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
     if (language === 'kn') return '\u0ca6\u0cbf\u0ca8\u0c97\u0cb3\u0cc1';
     if (language === 'ml') return '\u0d26\u0d3f\u0d35\u0d38\u0d19\u0d4d\u0d19\u0d7e';
     return 'days';
+  };
+
+  const handleDelete = async (e) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete ${product.name}?`)) return;
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/products/${product.id || product._id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to delete product');
+      toast.success('Product deleted successfully');
+      if (onDeleteSuccess) onDeleteSuccess();
+    } catch (err) {
+      toast.error(err.message);
+    }
   };
 
   return (
@@ -248,9 +265,20 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
                 setIsRequestModalOpen(true);
               }}
             >
-              <ShoppingBag size={14} /> Request Live Quote
+            >
+              <ShoppingBag size={14} /> {user?.role === 'admin' ? 'View Details' : 'Request Live Quote'}
             </button>
           </div>
+          
+          {user?.role === 'admin' && onDeleteSuccess && (
+            <button 
+              className="btn btn-sm"
+              style={{ width: '100%', marginTop: '4px', backgroundColor: '#fee2e2', color: '#dc2626', border: '1px solid #f87171' }}
+              onClick={handleDelete}
+            >
+              Delete Product (Admin)
+            </button>
+          )}
 
           {product.design_hash && (
             <div 
