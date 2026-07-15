@@ -191,8 +191,34 @@ async def verify_artisan(artisan_id: str, payload: ArtisanVerificationUpdate, cu
 async def get_all_products(current_user: dict = Depends(require_admin)):
     """List all jewellery products from all artisans."""
     products_coll = get_collection("products")
+    profiles_coll = get_collection("artisan_profiles")
+    users_coll = get_collection("users")
+    
     products = await products_coll.find({}).to_list(length=200)
-    return serialize_list(products)
+    results = []
+    
+    for prod in products:
+        try:
+            art_oid = ObjectId(prod["artisan_id"])
+        except Exception:
+            art_oid = prod["artisan_id"]
+            
+        profile = await profiles_coll.find_one({"user_id": art_oid})
+        artisan_user = await users_coll.find_one({"_id": art_oid})
+        
+        badge = "New / Building History"
+        if artisan_user:
+            rel_profile = artisan_user.get("reliability_profile") or {}
+            rel_score = rel_profile.get("reliability_score", 100.0)
+            badge = get_reliability_badge(rel_score)
+            
+        results.append({
+            **serialize_doc(prod),
+            "artisan_business_name": profile["business_name"] if profile else "CraftShield Artisan",
+            "artisan_reliability_badge": badge
+        })
+        
+    return results
 
 @router.get("/orders")
 async def get_all_orders(current_user: dict = Depends(require_admin)):
