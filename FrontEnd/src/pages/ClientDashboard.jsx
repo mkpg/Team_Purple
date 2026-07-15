@@ -1190,7 +1190,7 @@ export default function ClientDashboard() {
                             {order.status === 'Delivered' && (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(20, 110, 120, 0.1)', color: 'var(--color-teal)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(20, 110, 120, 0.3)', fontSize: '13px', fontWeight: '500' }}>
-                                  <span>\u23f3 <strong>Escrow Protection:</strong> Automatic payment release triggers in <strong>2 days, 23 hours</strong> if not confirmed manually.</span>
+                                  <span>⏳ <strong>Escrow Protection:</strong> Automatic payment release triggers in <strong>2 days, 23 hours</strong> if not confirmed manually.</span>
                                 </div>
                                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                   <button 
@@ -1212,7 +1212,7 @@ export default function ClientDashboard() {
                                     }}
                                     style={{ background: 'var(--color-surface-mixed)', color: 'var(--color-primary)', border: '1px solid var(--color-outline)', display: 'flex', alignItems: 'center', gap: '6px' }}
                                   >
-                                    \u26a1 Simulate 3-Day Escrow Release
+                                    ⚡ Simulate 3-Day Escrow Release
                                   </button>
                                 </div>
                               </div>
