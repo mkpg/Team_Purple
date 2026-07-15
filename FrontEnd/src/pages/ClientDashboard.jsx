@@ -265,7 +265,6 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
                 setIsRequestModalOpen(true);
               }}
             >
-            >
               <ShoppingBag size={14} /> {user?.role === 'admin' ? 'View Details' : 'Request Live Quote'}
             </button>
           </div>
