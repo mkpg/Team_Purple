@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     VECHAIN_NODE_URL: str = "https://testnet.vechain.org"
     VECHAIN_CONTRACT_ADDRESS: str = ""
     VECHAIN_SPONSOR_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    SARVAM_API_KEY: str = ""
+    SARVAM_MODEL: str = "sarvam-30b"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"),

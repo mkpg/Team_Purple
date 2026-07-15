@@ -2,6 +2,8 @@ import { useContext, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, Gem, Shield, Hammer, User } from 'lucide-react';
 import { CraftShieldContext } from '../context/CraftShieldContext';
+import VoiceAssistant from '../new_features/VoiceAssistant/VoiceAssistant';
+import DirectChat from '../new_features/DirectChat/DirectChat';
 import './Layout.css';
 
 export default function Layout() {
@@ -128,6 +130,8 @@ export default function Layout() {
         </header>
         <div className="page-content">
           <Outlet />
+          <VoiceAssistant />
+          <DirectChat />
         </div>
       </main>
     </div>

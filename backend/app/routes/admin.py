@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from bson import ObjectId
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 
 from app.dependencies import require_admin
 from app.database import get_collection
@@ -235,3 +236,104 @@ async def delete_product_by_admin(product_id: str, current_user: dict = Depends(
         
     await products_coll.delete_one({"_id": prod_oid})
     return {"message": "Product deleted by admin successfully"}
+
+class ResolveDisputePayload(BaseModel):
+    action: str
+
+@router.post("/disputes/{dispute_id}/resolve")
+async def resolve_design_dispute(dispute_id: str, payload: ResolveDisputePayload, current_user: dict = Depends(require_admin)):
+    """Resolve a design dispute: approve (anchors to blockchain and publishes) or reject (removes product)."""
+    disputes_coll = get_collection("disputes")
+    products_coll = get_collection("products")
+    
+    try:
+        disp_oid = ObjectId(dispute_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid dispute ID format")
+        
+    dispute = await disputes_coll.find_one({"_id": disp_oid})
+    if not dispute:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dispute not found")
+        
+    if dispute.get("status") != "pending":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Dispute is already resolved")
+        
+    product_id = dispute.get("product_id")
+    try:
+        product_oid = ObjectId(product_id)
+    except Exception:
+        product_oid = product_id
+    
+    if payload.action == "approve":
+        # Anchor the design on blockchain!
+        product = await products_coll.find_one({"_id": product_oid})
+        if not product:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Associated product not found")
+            
+        from app.services.image_hashing import read_local_upload_bytes
+        image_bytes = read_local_upload_bytes(product.get("image_url"))
+        if not image_bytes:
+            image_bytes = f"dummy_bytes_for_product_{str(product_id)}".encode("utf-8")
+            
+        try:
+            from app.services.blockchain import build_design_bundle, compute_design_hash, register_design_onchain
+            created_at_str = product.get("created_at", datetime.utcnow()).isoformat()
+            bundle = build_design_bundle(
+                image_bytes=image_bytes,
+                product_title=product.get("name", "Unknown"),
+                description=product.get("description", ""),
+                artisan_id=str(product.get("artisan_id")),
+                upload_timestamp=created_at_str
+            )
+            design_hash = compute_design_hash(bundle)
+            
+            result = await register_design_onchain(
+                design_hash=design_hash,
+                artisan_id=str(product.get("artisan_id")),
+                product_id=str(product["_id"]),
+                image_url=product.get("image_url", "")
+            )
+            
+            registered_at = datetime.utcnow()
+            await products_coll.update_one(
+                {"_id": product_oid},
+                {"$set": {
+                    "moderation_status": "approved",
+                    "is_active": True,
+                    "blockchain_registered": True,
+                    "blockchain_tx_id": result["tx_id"],
+                    "blockchain_block_number": result["block_number"],
+                    "blockchain_artisan_address": result["artisan_address"],
+                    "blockchain_registered_at": registered_at,
+                    "blockchain_simulated": result.get("simulated", False),
+                    "design_hash": design_hash
+                }}
+            )
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Blockchain anchoring failed: {str(e)}")
+            
+        await disputes_coll.update_one(
+            {"_id": disp_oid},
+            {"$set": {
+                "status": "approved",
+                "resolved_at": datetime.utcnow(),
+                "admin_note": "Approved by administrator after manual verification of authenticity proofs."
+            }}
+        )
+        return {"message": "Dispute approved. Design successfully anchored to blockchain and catalog updated."}
+        
+    elif payload.action == "reject":
+        # Reject dispute and delete the product
+        await products_coll.delete_one({"_id": product_oid})
+        await disputes_coll.update_one(
+            {"_id": disp_oid},
+            {"$set": {
+                "status": "rejected",
+                "resolved_at": datetime.utcnow(),
+                "admin_note": "Rejected by administrator. Plagiarism warning upheld."
+            }}
+        )
+        return {"message": "Dispute rejected. Conflicting product design removed from system."}
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid action parameter")
+

@@ -32,10 +32,12 @@ export default function AdminPanel() {
     fetchUserScoreHistory,
     lookupAdminProof,
     deleteProduct,
-    refreshData
+    refreshData,
+    resolveDesignDispute,
+    API_BASE_URL
   } = useContext(CraftShieldContext);
 
-  const [activeTab, setActiveTab] = useState('verifications'); // verifications, users, catalog, ledgers, scores
+  const [activeTab, setActiveTab] = useState('verifications'); // verifications, users, catalog, ledgers, scores, disputes
   const [scoreTargetUser, setScoreTargetUser] = useState('');
   const [scoreProfileType, setScoreProfileType] = useState('trust');
   const [scoreDelta, setScoreDelta] = useState('');
@@ -174,6 +176,15 @@ export default function AdminPanel() {
           )}
         </button>
         <button
+          className={`tab-link ${activeTab === 'disputes' ? 'active' : ''}`}
+          onClick={() => setActiveTab('disputes')}
+        >
+          <Scale size={18} /> Design Moderation
+          {adminDisputes && adminDisputes.filter(d => d.status === 'pending').length > 0 && (
+            <span className="tab-badge gold">{adminDisputes.filter(d => d.status === 'pending').length}</span>
+          )}
+        </button>
+        <button
           className={`tab-link ${activeTab === 'users' ? 'active' : ''}`}
           onClick={() => setActiveTab('users')}
         >
@@ -255,6 +266,134 @@ export default function AdminPanel() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'disputes' && (
+            <motion.div
+              key="disputes"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="disputes-panel"
+            >
+              <h3 className="headline-md mb-4">Design Similarity Conflicts & Disputes</h3>
+              {(!adminDisputes || adminDisputes.length === 0) ? (
+                <div className="empty-state">No pending design disputes submitted.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {adminDisputes.map(dispute => {
+                    const statusBadgeClass = dispute.status === 'pending' ? 'badge-gold' : dispute.status === 'approved' ? 'badge-green' : 'badge-red';
+                    return (
+                      <div key={dispute.id || dispute._id} className="card" style={{ padding: '20px', border: '1px solid #ddd' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+                          <div>
+                            <h4 className="headline-sm" style={{ margin: 0 }}>Dispute for Product: {dispute.product_name}</h4>
+                            <span className="label-sm text-muted">Submitted by Artisan: <strong>{dispute.artisan_name}</strong></span>
+                          </div>
+                          <span className={`badge ${statusBadgeClass}`}>{dispute.status}</span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '16px' }}>
+                          {/* Left: Original Design vs Conflicting Matches */}
+                          <div>
+                            <h5 className="font-semibold text-xs text-muted mb-2">Submitted Product Image</h5>
+                            <img 
+                              src={dispute.product_image_url ? (dispute.product_image_url.startsWith('/uploads') ? `${API_BASE_URL}${dispute.product_image_url}` : dispute.product_image_url) : ''} 
+                              alt={dispute.product_name} 
+                              style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd' }}
+                            />
+
+                            {dispute.conflicting_products && dispute.conflicting_products.length > 0 && (
+                              <div style={{ marginTop: '16px' }}>
+                                <h5 className="font-semibold text-xs text-muted mb-2">Conflicting Matches Caught by similarity Engine:</h5>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  {dispute.conflicting_products.map((conflict, idx) => (
+                                    <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#f9f9f9', padding: '8px', borderRadius: '6px', border: '1px solid #eee' }}>
+                                      <img
+                                        src={conflict.image_url ? (conflict.image_url.startsWith('/uploads') ? `${API_BASE_URL}${conflict.image_url}` : conflict.image_url) : ''}
+                                        alt={conflict.name}
+                                        style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
+                                      />
+                                      <div>
+                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 'bold' }}>{conflict.name}</p>
+                                        <p style={{ margin: 0, fontSize: '11px', color: '#666' }}>Artisan ID: {conflict.artisan_id}</p>
+                                        {conflict.ai_similarity_score !== undefined && (
+                                          <span style={{ fontSize: '11px', color: 'var(--color-secondary)' }}>Similarity: {(conflict.ai_similarity_score * 100).toFixed(0)}%</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right: Justification & Proof Uploads */}
+                          <div>
+                            <h5 className="font-semibold text-xs text-muted mb-1">Artisan Justification / Origin:</h5>
+                            <p style={{ fontSize: '13px', background: '#fafafa', padding: '12px', borderRadius: '6px', border: '1px solid #eee', fontStyle: 'italic', margin: '0 0 16px 0' }}>
+                              "{dispute.justification}"
+                            </p>
+
+                            <h5 className="font-semibold text-xs text-muted mb-1">Supporting Proof Document:</h5>
+                            {dispute.proof_image_url ? (
+                              <a 
+                                href={dispute.proof_image_url.startsWith('/uploads') ? `${API_BASE_URL}${dispute.proof_image_url}` : dispute.proof_image_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                <img 
+                                  src={dispute.proof_image_url.startsWith('/uploads') ? `${API_BASE_URL}${dispute.proof_image_url}` : dispute.proof_image_url} 
+                                  alt="Supporting Proof document" 
+                                  style={{ width: '150px', height: '150px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #ddd', cursor: 'zoom-in' }}
+                                />
+                              </a>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: '#888', fontStyle: 'italic' }}>No proof file uploaded.</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {dispute.status === 'pending' && (
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #eee', paddingTop: '16px', marginTop: '16px' }}>
+                            <button
+                              className="btn btn-logout btn-sm"
+                              onClick={async () => {
+                                if (!window.confirm("Reject this dispute? The conflicting product will be deleted permanently.")) return;
+                                try {
+                                  await resolveDesignDispute(dispute.id || dispute._id, 'reject');
+                                  toast.success("Dispute rejected. Conflicting product deleted.");
+                                } catch (err) {
+                                  toast.error(err.message || "Failed to resolve dispute");
+                                }
+                              }}
+                              style={{ color: '#d32f2f', border: '1px solid rgba(211, 47, 47, 0.2)', padding: '8px 16px' }}
+                            >
+                              Reject & Delete Conflicting Design
+                            </button>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={async () => {
+                                if (!window.confirm("Approve this dispute? The design will be registered on the blockchain and published.")) return;
+                                try {
+                                  await resolveDesignDispute(dispute.id || dispute._id, 'approve');
+                                  toast.success("Dispute approved! Design registered on the blockchain.");
+                                } catch (err) {
+                                  toast.error(err.message || "Failed to resolve dispute");
+                                }
+                              }}
+                              style={{ backgroundColor: '#1b5e20', color: '#fff', padding: '8px 16px' }}
+                            >
+                              Approve & Anchor design
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </motion.div>

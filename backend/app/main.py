@@ -16,6 +16,8 @@ from app.routes.client import router as client_router
 from app.routes.artisan import router as artisan_router
 from app.routes.admin import router as admin_router
 from app.routes.verification import router as verification_router
+from app.routes.chat import router as chat_router
+from app.routes.voice_assistant import router as voice_assistant_router
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -60,7 +62,19 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Set to ["*"] for public availability during prototype phase
+    allow_origin_regex=r"https://.*\.netlify\.app",
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "https://craftshield-p.netlify.app", 
+        "https://craftshield.netlify.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,6 +93,8 @@ app.include_router(client_router)
 app.include_router(artisan_router)
 app.include_router(admin_router)
 app.include_router(verification_router)
+app.include_router(chat_router)
+app.include_router(voice_assistant_router)
 
 # Multi-Image File Uploading Route
 @app.post("/api/upload", tags=["Upload"])

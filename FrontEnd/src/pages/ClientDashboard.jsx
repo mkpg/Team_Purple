@@ -236,10 +236,19 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
               style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
               onClick={(e) => {
                 e.stopPropagation();
-                setBuyingProduct(product);
+                setRequestForm(prev => ({
+                  ...prev,
+                  artisan_id: product.artisan_id,
+                  jewellery_type: product.category,
+                  description: `I would like to order the catalog design: ${product.name}. Please provide a live quotation with today's material rates.`,
+                  material_preference: product.material,
+                  budget: product.price,
+                  reference_image_url: product.image_url
+                }));
+                setIsRequestModalOpen(true);
               }}
             >
-              <ShoppingBag size={14} /> Buy Design
+              <ShoppingBag size={14} /> Request Live Quote
             </button>
           </div>
 

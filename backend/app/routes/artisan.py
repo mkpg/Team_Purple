@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from bson import ObjectId
 from datetime import datetime
-from typing import List
+from typing import List, Optional
+import httpx
+import numpy as np
 
 from app.dependencies import require_artisan, require_verified_artisan
 from app.database import get_collection
@@ -23,13 +25,50 @@ from app.services.transaction_proof import get_order_proof_response
 
 router = APIRouter(prefix="/api/artisan", tags=["Artisan Portal"])
 
+def compute_cosine_similarity(v1, v2):
+    try:
+        a = np.array(v1)
+        b = np.array(v2)
+        if a.shape != b.shape:
+            return 0.0
+        if np.linalg.norm(a) == 0 or np.linalg.norm(b) == 0:
+            return 0.0
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    except Exception:
+        return 0.0
+
+JARVIS_AI_URL = "https://d1df344463100.notebooksn.jarvislabs.net/proxy/8000/extract-features"
+
+async def get_ai_embedding(image_url: str):
+    image_bytes = read_local_upload_bytes(image_url)
+    if not image_bytes:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            files = {'file': ('image.jpg', image_bytes, 'image/jpeg')}
+            response = await client.post(JARVIS_AI_URL, files=files)
+            if response.status_code == 200:
+                return response.json().get("embedding")
+            else:
+                print(f"GPU Server returned: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"AI GPU Connection failed: {e}")
+    return None
+
 
 async def _build_image_fingerprint_or_none(image_url: str | None) -> dict:
     image_bytes = read_local_upload_bytes(image_url)
     if not image_bytes:
         return {}
     try:
-        return build_fingerprint(image_bytes)
+        fp = build_fingerprint(image_bytes)
+        try:
+            emb = await get_ai_embedding(image_url)
+            if emb:
+                fp["ai_embedding"] = emb
+        except Exception as e:
+            print(f"AI base embedding failed: {e}")
+        return fp
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -135,6 +174,42 @@ async def create_product(payload: ProductCreate, current_user: dict = Depends(re
     fingerprint = await _build_image_fingerprint_or_none(payload.image_url)
     await _raise_if_exact_duplicate(products_coll.database, fingerprint, current_user)
     
+    # Check general similarity (both phash and AI embedding)
+    similarity_conflict = False
+    conflicting_products = []
+    
+    # 1. pHash search
+    if fingerprint.get("phash"):
+        p_matches = await find_similar_designs(products_coll.database, fingerprint["phash"])
+        for match in p_matches:
+            if str(match.get("artisan_id")) != str(current_user["_id"]):
+                similarity_conflict = True
+                conflicting_products.append({
+                    "product_id": str(match["_id"]),
+                    "name": match.get("name"),
+                    "image_url": match.get("image_url"),
+                    "artisan_id": str(match.get("artisan_id"))
+                })
+                
+    # 2. AI embedding search
+    if fingerprint.get("ai_embedding"):
+        all_products = await products_coll.find({"ai_embedding": {"$exists": True}}).to_list(length=None)
+        for prod in all_products:
+            if str(prod.get("artisan_id")) != str(current_user["_id"]):
+                score = compute_cosine_similarity(fingerprint["ai_embedding"], prod["ai_embedding"])
+                if score > 0.90:  # 90% threshold
+                    similarity_conflict = True
+                    # Avoid duplicate entry if pHash already caught it
+                    if not any(c["product_id"] == str(prod["_id"]) for c in conflicting_products):
+                        conflicting_products.append({
+                            "product_id": str(prod["_id"]),
+                            "name": prod.get("name"),
+                            "image_url": prod.get("image_url"),
+                            "artisan_id": str(prod.get("artisan_id")),
+                            "ai_similarity_score": round(score, 3)
+                        })
+
+    # Prepare product document
     new_product = {
         **payload.dict(),
         **fingerprint,
@@ -142,11 +217,39 @@ async def create_product(payload: ProductCreate, current_user: dict = Depends(re
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     }
-    
+
+    if similarity_conflict:
+        new_product["is_active"] = False
+        new_product["moderation_status"] = "pending"
+    else:
+        new_product["is_active"] = True
+
     res = await products_coll.insert_one(new_product)
     new_product["_id"] = res.inserted_id
     
-    return serialize_doc(new_product)
+    result = serialize_doc(new_product)
+
+    if similarity_conflict:
+        # Create an automatic dispute ticket
+        disputes_coll = get_collection("disputes")
+        dispute = {
+            "product_id": str(res.inserted_id),
+            "product_name": new_product["name"],
+            "product_image_url": new_product["image_url"],
+            "artisan_id": str(current_user["_id"]),
+            "artisan_name": current_user.get("username", "Artisan"),
+            "justification": "",
+            "proof_image_url": "",
+            "conflicting_products": conflicting_products,
+            "status": "pending",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        await disputes_coll.insert_one(dispute)
+        result["similarity_conflict"] = True
+        result["conflicting_products"] = conflicting_products
+
+    return result
 
 @router.get("/products")
 async def get_my_products(current_user: dict = Depends(require_artisan)):
@@ -180,6 +283,28 @@ async def check_uploaded_image_similarity(payload: SimilarityImageCheck, current
 
     matches = await find_similar_designs(products_coll.database, fingerprint["phash"])
     matches = [match for match in matches if str(match.get("artisan_id")) != str(current_user["_id"])]
+    
+    # --- AI Structural Similarity Check ---
+    try:
+        new_embedding = await get_ai_embedding(payload.image_url)
+        if new_embedding:
+            fingerprint["ai_embedding"] = new_embedding
+            all_products = await products_coll.find({"ai_embedding": {"$exists": True}}).to_list(length=None)
+            for prod in all_products:
+                if str(prod.get("artisan_id")) != str(current_user["_id"]):
+                    score = compute_cosine_similarity(new_embedding, prod["ai_embedding"])
+                    if score > 0.90:  # 90% structural match threshold
+                        # Avoid duplicating if pHash already caught it
+                        if not any(str(m.get("_id")) == str(prod["_id"]) for m in matches):
+                            matches.append({
+                                "_id": str(prod["_id"]),
+                                "name": prod.get("name"),
+                                "artisan_id": str(prod.get("artisan_id")),
+                                "ai_similarity_score": round(score, 3)
+                            })
+    except Exception as e:
+        print(f"AI Check bypassed or failed: {e}")
+
     return {
         "status": "checked",
         "warnings": matches,
@@ -221,7 +346,7 @@ async def update_product(product_id: str, payload: ProductUpdate, current_user: 
 
 @router.post("/products/{product_id}/check-similarity")
 async def check_product_similarity(product_id: str, current_user: dict = Depends(require_verified_artisan)):
-    """Read-only duplicate/similarity check for an existing product."""
+    """Check similarity for an existing product and deactivate it if a similarity conflict exists."""
     products_coll = get_collection("products")
 
     try:
@@ -252,6 +377,10 @@ async def check_product_similarity(product_id: str, current_user: dict = Depends
 
     duplicate = await check_exact_duplicate(products_coll.database, fingerprint["sha256_hash"], exclude_product_id=product_id)
     if duplicate and str(duplicate.get("artisan_id")) != str(current_user["_id"]):
+        await products_coll.update_one(
+            {"_id": prod_oid},
+            {"$set": {"is_active": False, "moderation_status": "pending"}}
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -261,9 +390,77 @@ async def check_product_similarity(product_id: str, current_user: dict = Depends
             },
         )
 
+    # 1. pHash search
     matches = await find_similar_designs(products_coll.database, fingerprint["phash"], exclude_product_id=product_id)
     matches = [match for match in matches if str(match.get("artisan_id")) != str(current_user["_id"])]
-    return {"status": "checked", "warnings": matches}
+    
+    # 2. AI embedding search
+    conflicting_products = []
+    for match in matches:
+        conflicting_products.append({
+            "product_id": str(match["_id"]),
+            "name": match.get("name"),
+            "image_url": match.get("image_url"),
+            "artisan_id": str(match.get("artisan_id"))
+        })
+
+    ai_embedding = product.get("ai_embedding")
+    if not ai_embedding:
+        try:
+            ai_embedding = await get_ai_embedding(product.get("image_url"))
+            if ai_embedding:
+                await products_coll.update_one({"_id": prod_oid}, {"$set": {"ai_embedding": ai_embedding}})
+        except Exception as e:
+            print(f"Failed to fetch AI embedding: {e}")
+
+    if ai_embedding:
+        all_products = await products_coll.find({"ai_embedding": {"$exists": True}}).to_list(length=None)
+        for prod in all_products:
+            if str(prod["_id"]) != product_id and str(prod.get("artisan_id")) != str(current_user["_id"]):
+                score = compute_cosine_similarity(ai_embedding, prod["ai_embedding"])
+                if score > 0.90:  # 90% threshold
+                    if not any(c["product_id"] == str(prod["_id"]) for c in conflicting_products):
+                        conflicting_products.append({
+                            "product_id": str(prod["_id"]),
+                            "name": prod.get("name"),
+                            "image_url": prod.get("image_url"),
+                            "artisan_id": str(prod.get("artisan_id")),
+                            "ai_similarity_score": round(score, 3)
+                        })
+
+    if len(conflicting_products) > 0:
+        # Deactivate this product immediately!
+        await products_coll.update_one(
+            {"_id": prod_oid},
+            {"$set": {"is_active": False, "moderation_status": "pending"}}
+        )
+        
+        # Create dispute if not already exists
+        disputes_coll = get_collection("disputes")
+        existing_dispute = await disputes_coll.find_one({"product_id": product_id})
+        if not existing_dispute:
+            dispute = {
+                "product_id": product_id,
+                "product_name": product["name"],
+                "product_image_url": product["image_url"],
+                "artisan_id": str(current_user["_id"]),
+                "artisan_name": current_user.get("username", "Artisan"),
+                "justification": "",
+                "proof_image_url": "",
+                "conflicting_products": conflicting_products,
+                "status": "pending",
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            await disputes_coll.insert_one(dispute)
+            
+        return {
+            "status": "checked",
+            "warnings": conflicting_products,
+            "deactivated": True
+        }
+
+    return {"status": "checked", "warnings": []}
 
 @router.delete("/products/{product_id}")
 async def delete_product(product_id: str, current_user: dict = Depends(require_verified_artisan)):
@@ -519,11 +716,41 @@ async def register_product_design(product_id: str, payload: RegisterDesignReques
     matches = await find_similar_designs(products_coll.database, phash, exclude_product_id=product_id)
     matches = [m for m in matches if str(m.get("artisan_id")) != str(current_user["_id"])]
 
-    if matches and not override:
+    # --- AI Structural Similarity Check ---
+    ai_emb = product.get("ai_embedding")
+    if not ai_emb:
+        try:
+            ai_emb = await get_ai_embedding(product.get("image_url"))
+            if ai_emb:
+                await products_coll.update_one({"_id": prod_oid}, {"$set": {"ai_embedding": ai_emb}})
+        except Exception:
+            pass
+            
+    if ai_emb:
+        all_products = await products_coll.find({"ai_embedding": {"$exists": True}, "_id": {"$ne": prod_oid}}).to_list(length=None)
+        for p in all_products:
+            if str(p.get("artisan_id")) != str(current_user["_id"]):
+                score = compute_cosine_similarity(ai_emb, p["ai_embedding"])
+                print(f"🔍 AI SIMILARITY SCORE: {score:.3f} (Comparing '{product.get('name')}' against '{p.get('name')}')")
+                # Lowered to 0.50 for the hackathon demo to aggressively block similar objects in different lighting/zoom
+                if score >= 0.50:
+                    if not any(str(m.get("_id")) == str(p["_id"]) for m in matches):
+                        matches.append({
+                            "_id": str(p["_id"]),
+                            "name": p.get("name"),
+                            "artisan_id": str(p.get("artisan_id")),
+                            "ai_similarity_score": round(score, 3)
+                        })
+
+    # If approved by admin, ignore similarity warning
+    if product.get("moderation_status") == "approved":
+        matches = []
+
+    if matches:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "message": "Visual similarity warning: Resembling designs detected. You can override if you believe this is your original design.",
+                "message": "Visual similarity warning: Resembling designs detected. Direct anchoring blocked. You must submit a design dispute with proof for admin review.",
                 "warnings": serialize_list(matches)
             }
         )
@@ -533,65 +760,139 @@ async def register_product_design(product_id: str, payload: RegisterDesignReques
     if not image_bytes:
         image_bytes = f"dummy_bytes_for_product_{product_id}".encode("utf-8")
 
-    from app.services.blockchain import build_design_bundle, compute_design_hash, register_design_onchain
-    
-    # Construct bundle and hash
-    created_at_str = product.get("created_at", datetime.utcnow()).isoformat()
-    bundle = build_design_bundle(
-        image_bytes=image_bytes,
-        product_title=product["name"],
-        description=product.get("description", ""),
-        artisan_id=str(current_user["_id"]),
-        upload_timestamp=created_at_str
-    )
-    design_hash = compute_design_hash(bundle)
+    try:
+        from app.services.blockchain import build_design_bundle, compute_design_hash, register_design_onchain
+        
+        # Construct bundle and hash
+        created_at_str = product.get("created_at", datetime.utcnow()).isoformat()
+        bundle = build_design_bundle(
+            image_bytes=image_bytes,
+            product_title=product.get("name", "Unknown"),
+            description=product.get("description", ""),
+            artisan_id=str(current_user["_id"]),
+            upload_timestamp=created_at_str
+        )
+        design_hash = compute_design_hash(bundle)
 
-    # Register design on-chain or mock fallback
-    result = await register_design_onchain(
-        design_hash=design_hash,
-        artisan_id=str(current_user["_id"]),
-        product_id=str(product["_id"]),
-        image_url=product.get("image_url", "")
-    )
+        # Register design on-chain or mock fallback
+        result = await register_design_onchain(
+            design_hash=design_hash,
+            artisan_id=str(current_user["_id"]),
+            product_id=str(product["_id"]),
+            image_url=product.get("image_url", "")
+        )
 
-    # Update product record
-    registered_at = datetime.utcnow()
+        # Update product record
+        registered_at = datetime.utcnow()
+        await products_coll.update_one(
+            {"_id": prod_oid},
+            {"$set": {
+                "blockchain_registered": True,
+                "blockchain_tx_id": result["tx_id"],
+                "blockchain_block_number": result["block_number"],
+                "blockchain_artisan_address": result["artisan_address"],
+                "blockchain_registered_at": registered_at,
+                "blockchain_simulated": result.get("simulated", False),
+                "design_hash": design_hash
+            }}
+        )
+
+        updated_product = await products_coll.find_one({"_id": prod_oid})
+        return serialize_doc(updated_product)
+        
+    except Exception as e:
+        import traceback
+        err_detail = traceback.format_exc()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Blockchain registration crash: {str(e)}"
+        )
+
+class SubmitDisputeRequest(BaseModel):
+    justification: str
+    proof_image_url: Optional[str] = None
+
+@router.post("/products/{product_id}/dispute")
+async def submit_product_dispute(product_id: str, payload: SubmitDisputeRequest, current_user: dict = Depends(require_verified_artisan)):
+    """Submit a design similarity dispute with supporting evidence for Admin Review."""
+    products_coll = get_collection("products")
+    disputes_coll = products_coll.database["disputes"]
+    try:
+        prod_oid = ObjectId(product_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid product ID format")
+
+    product = await products_coll.find_one({"_id": prod_oid})
+    if not product:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+    if str(product["artisan_id"]) != str(current_user["_id"]):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not own this product")
+
+    # Find matches again to document the conflict in the dispute ticket
+    phash = product.get("phash")
+    matches = await find_similar_designs(products_coll.database, phash, exclude_product_id=product_id)
+    matches = [m for m in matches if str(m.get("artisan_id")) != str(current_user["_id"])]
+
+    ai_emb = product.get("ai_embedding")
+    if ai_emb:
+        all_products = await products_coll.find({"ai_embedding": {"$exists": True}, "_id": {"$ne": prod_oid}}).to_list(length=None)
+        for p in all_products:
+            if str(p.get("artisan_id")) != str(current_user["_id"]):
+                score = compute_cosine_similarity(ai_emb, p["ai_embedding"])
+                if score >= 0.50:
+                    if not any(str(m.get("_id")) == str(p["_id"]) for m in matches):
+                        matches.append({
+                            "_id": str(p["_id"]),
+                            "name": p.get("name"),
+                            "artisan_id": str(p.get("artisan_id")),
+                            "ai_similarity_score": round(score, 3)
+                        })
+
+    # Update product moderation status and hide from clients
     await products_coll.update_one(
         {"_id": prod_oid},
         {"$set": {
-            "blockchain_registered": True,
-            "blockchain_tx_id": result["tx_id"],
-            "blockchain_block_number": result["block_number"],
-            "blockchain_artisan_address": result["artisan_address"],
-            "blockchain_registered_at": registered_at,
-            "blockchain_simulated": result.get("simulated", False),
-            "design_hash": design_hash
+            "moderation_status": "pending",
+            "is_active": False
         }}
     )
 
-    # If override was True and there were matches, file a dispute
-    if matches and override:
-        disputes_coll = products_coll.database["disputes"]
-        await disputes_coll.insert_one({
-            "type": "design_hash_conflict",
-            "product_id": prod_oid,
-            "product_name": product["name"],
-            "artisan_id": current_user["_id"],
-            "artisan_name": current_user["full_name"],
-            "design_hash": design_hash,
+    # Check if a dispute ticket already exists for this product
+    existing_dispute = await disputes_coll.find_one({
+        "$or": [
+            {"product_id": prod_oid},
+            {"product_id": str(prod_oid)}
+        ]
+    })
+    
+    if existing_dispute:
+        # Update existing dispute template
+        await disputes_coll.update_one(
+            {"_id": existing_dispute["_id"]},
+            {"$set": {
+                "justification": payload.justification,
+                "proof_image_url": payload.proof_image_url,
+                "conflicting_products": serialize_list(matches),
+                "updated_at": datetime.utcnow()
+            }}
+        )
+    else:
+        # File a new dispute if no template exists
+        new_dispute = {
+            "type": "design_plagiarism",
+            "product_id": str(prod_oid),
+            "product_name": product.get("name"),
+            "product_image_url": product.get("image_url"),
+            "artisan_id": str(current_user["_id"]),
+            "artisan_name": current_user.get("full_name") or current_user.get("username", "Artisan"),
+            "justification": payload.justification,
+            "proof_image_url": payload.proof_image_url,
             "conflicting_products": serialize_list(matches),
             "status": "pending",
             "created_at": datetime.utcnow(),
-            "note": "Artisan registered a design that has a high similarity score with an existing product using override."
-        })
+            "updated_at": datetime.utcnow()
+        }
+        await disputes_coll.insert_one(new_dispute)
 
-    return {
-        "status": "success",
-        "message": "Design anchored successfully",
-        "tx_id": result["tx_id"],
-        "block_number": result["block_number"],
-        "artisan_address": result["artisan_address"],
-        "registered_at": registered_at,
-        "design_hash": design_hash,
-        "simulated": result.get("simulated", False)
-    }
+    return {"status": "success", "message": "Design dispute submitted for admin review"}
+

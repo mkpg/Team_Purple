@@ -1,0 +1,78 @@
+C:\Users\assas\OneDrive\Desktop\ALL COLLEGE WORK\clg wrk\CodeZap hackton\FINALS\backend\app\routes\voice_assistant.py:16: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+INFO:     Started server process [21940]
+INFO:     Waiting for application startup.
+INFO:app.main:Initializing database connection...
+INFO:app.main:Seeding database default assets...
+INFO:app.database:Admin account already exists
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:56932 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:app.routes.voice_assistant:Sarvam AI response code: 200, body: {"id":"20260715_48779b37-84ae-44e5-a2eb-1f40bb7eb0a2","choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"\n\u0ba8\u0bbe\u0ba9\u0bcd Antigravity, CraftShield-\u0b87\u0ba9\u0bcd voice assistant. \u0b89\u0b99\u0bcd\u0b95\u0bb3\u0bcd \u0b9a\u0bae\u0bc0\u0baa\u0ba4\u0bcd\u0ba4\u0bbf\u0baf order status Completed \u0b86\u0b95 \u0b89\u0bb3\u0bcd\u0bb3\u0ba4\u0bc1, total amount 1400.0, advance 700.0, final 700.0.","refusal":null,"reasoning_content":null,"role":"assistant","tool_calls":null}}],"created":1784119107,"model":"sarvam-30b","object":"chat.completion","service_tier":null,"system_fingerprint":null,"usage":{"completion_tokens":50,"prompt_tokens":569,"total_tokens":619,"completion_tokens_details":null,"prompt_tokens_details":null}}
+INFO:     127.0.0.1:52719 - "POST /api/voice-assistant/ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "OPTIONS /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "OPTIONS /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "OPTIONS /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/client/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "OPTIONS /api/client/artisans HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "OPTIONS /api/client/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/client/custom-requests HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "OPTIONS /api/client/quotations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "OPTIONS /api/client/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/client/payments HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/client/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/client/custom-requests HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/client/quotations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/client/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/client/payments HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "GET /api/client/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "GET /api/client/artisans HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "GET /api/client/custom-requests HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "GET /api/client/quotations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "GET /api/client/payments HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "GET /api/client/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "GET /api/client/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "GET /api/client/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "GET /api/client/artisans HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "GET /api/client/custom-requests HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "GET /api/client/payments HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "GET /api/client/quotations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "GET /api/client/orders HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "GET /api/client/products HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "OPTIONS /api/chat/conversations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "OPTIONS /api/chat/contacts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "GET /api/chat/conversations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50978 - "GET /api/chat/contacts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51204 - "GET /api/chat/conversations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60754 - "GET /api/chat/contacts HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 61675) - "WebSocket /api/chat/ws/6a46892a23eb51fccfcad000" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:50956 - "GET /uploads/488eb231-7cb3-4be0-a3de-798d59082af7.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60062 - "GET /uploads/04ba6af6-cc53-4b76-b4a0-198bf5e88bc9.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49652 - "GET /uploads/411e4e0b-7be1-4248-9095-4e7b656d506c.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60062 - "GET /uploads/f0a62a65-1cad-436f-b090-5e13291c8a99.jpeg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49397 - "OPTIONS /api/voice-assistant/ask HTTP/1.1" 200 OK
+INFO:app.routes.voice_assistant:Sarvam AI response code: 200, body: {"id":"20260715_87d61c13-a182-4072-bcd9-1a893f692c9e","choices":[{"finish_reason":"stop","index":0,"logprobs":null,"message":{"content":"\nen: CraftShield's Safe Payment Vault requires a 50% advance payment upfront, with the remaining 50% released upon order completion. This zero-trust system ensures secure transactions for all clients.","refusal":null,"reasoning_content":null,"role":"assistant","tool_calls":null}}],"created":1784119126,"model":"sarvam-30b","object":"chat.completion","service_tier":null,"system_fingerprint":null,"usage":{"completion_tokens":45,"prompt_tokens":560,"total_tokens":605,"completion_tokens_details":null,"prompt_tokens_details":null}}
+INFO:     127.0.0.1:64706 - "POST /api/voice-assistant/ask HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64706 - "GET /api/chat/conversations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64706 - "OPTIONS /api/chat/messages/6a46740fb8d2ea1aba5979a8 HTTP/1.1" 200 OK
+INFO:     connection closed
+INFO:     127.0.0.1:57054 - "GET /api/chat/messages/6a46740fb8d2ea1aba5979a8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64706 - "GET /api/chat/conversations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57054 - "GET /api/chat/contacts HTTP/1.1" 200 OK
+INFO:     ('127.0.0.1', 58892) - "WebSocket /api/chat/ws/6a46892a23eb51fccfcad000" [accepted]
+INFO:     connection open
+INFO:     127.0.0.1:57054 - "OPTIONS /api/chat/send HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64706 - "POST /api/chat/send HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64706 - "GET /api/chat/conversations HTTP/1.1" 200 OK
+INFO:     connection closed

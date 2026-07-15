@@ -94,12 +94,17 @@ export const CraftShieldProvider = ({ children }) => {
             return `${field}: ${err.msg}`;
           }).join(', ');
         } else if (data.detail && typeof data.detail === 'object') {
-          errorMsg = JSON.stringify(data.detail);
+          errorMsg = data.detail.message || JSON.stringify(data.detail);
         } else if (data.message) {
           errorMsg = data.message;
         }
       }
-      throw new Error(errorMsg);
+      const error = new Error(errorMsg);
+      // Attach warnings from similarity conflict (409) so the UI can show the Override modal
+      if (data && typeof data === 'object' && data.detail && typeof data.detail === 'object') {
+        error.warnings = data.detail.warnings || [];
+      }
+      throw error;
     }
 
     return data;
@@ -485,7 +490,25 @@ export const CraftShieldProvider = ({ children }) => {
     return await apiFetch(`/products/${productId}/design-proof`);
   };
 
+  const submitDesignDispute = async (productId, justification, proofImageUrl) => {
+    const res = await apiFetch(`/api/artisan/products/${productId}/dispute`, {
+      method: 'POST',
+      body: JSON.stringify({ justification, proof_image_url: proofImageUrl })
+    });
+    await refreshData();
+    return res;
+  };
+
   // Admin actions
+  const resolveDesignDispute = async (disputeId, action) => {
+    const res = await apiFetch(`/api/admin/disputes/${disputeId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ action })
+    });
+    await refreshData();
+    return res;
+  };
+
   const verifyArtisan = async (artisanId, verifyStatus) => {
     const res = await apiFetch(`/api/admin/artisans/${artisanId}/verify`, {
       method: 'PUT',
@@ -600,6 +623,7 @@ export const CraftShieldProvider = ({ children }) => {
       checkDesignSimilarity,
       registerDesign,
       getDesignProof,
+      submitDesignDispute,
 
       // Admin state
       adminStats,
@@ -616,7 +640,8 @@ export const CraftShieldProvider = ({ children }) => {
       adminUpdateProduct,
       getArtisanReliability,
       adjustArtisanReliability,
-      lookupAdminProof
+      lookupAdminProof,
+      resolveDesignDispute
 
     }}>
       {children}

@@ -1,0 +1,286 @@
+/* Floating Voice Assistant Button styling */
+.voice-assistant-fab {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary, #0a192f);
+  color: var(--color-secondary, #f59e0b);
+  border: 2px solid var(--color-secondary, #f59e0b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.voice-assistant-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(245, 158, 11, 0.4);
+}
+
+.voice-assistant-fab.listening {
+  background: #7f1d1d;
+  border-color: #f87171;
+  animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(248, 113, 113, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0);
+  }
+}
+
+/* Chat drawer container */
+.voice-assistant-drawer {
+  position: fixed;
+  bottom: 96px;
+  left: 24px;
+  width: 380px;
+  height: 500px;
+  background: #1e1e24;
+  border: 1px solid #3e3e4a;
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  transition: all 0.3s ease;
+}
+
+.voice-assistant-header {
+  background: #0a192f;
+  padding: 16px;
+  border-bottom: 1px solid #233554;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.voice-assistant-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-secondary, #f59e0b);
+}
+
+.voice-assistant-close {
+  background: transparent;
+  border: none;
+  color: #a0aec0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.voice-assistant-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Language selector */
+.voice-lang-selector {
+  padding: 8px 16px;
+  background: #2d2d38;
+  border-bottom: 1px solid #3e3e4a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.voice-lang-selector label {
+  font-size: 12px;
+  color: #a0aec0;
+}
+
+.voice-lang-select {
+  background: #1e1e24;
+  border: 1px solid #4a5568;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 6px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Messages area */
+.voice-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.voice-msg {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.voice-msg.user {
+  background: var(--color-secondary, #f59e0b);
+  color: #111;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+.voice-msg.assistant {
+  background: #2e303f;
+  color: #f7fafc;
+  align-self: flex-start;
+  border-bottom-left-radius: 2px;
+  border: 1px solid #3a3b4c;
+}
+
+/* Common questions pills */
+.voice-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 16px;
+  background: #1a1a20;
+  border-top: 1px solid #2d2d38;
+}
+
+.voice-suggest-btn {
+  background: #2d2d38;
+  border: 1px solid #4a5568;
+  color: #cbd5e0;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.voice-suggest-btn:hover {
+  background: var(--color-primary, #0a192f);
+  border-color: var(--color-secondary, #f59e0b);
+  color: white;
+}
+
+/* Footer / Input area */
+.voice-input-area {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #131317;
+  border-top: 1px solid #2d2d38;
+  gap: 8px;
+}
+
+.voice-text-input {
+  flex: 1;
+  background: #1e1e24;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: white;
+  font-size: 13px;
+  outline: none;
+}
+
+.voice-text-input:focus {
+  border-color: var(--color-secondary, #f59e0b);
+}
+
+.voice-mic-btn {
+  background: #2e303f;
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.voice-mic-btn:hover {
+  background: var(--color-secondary, #f59e0b);
+  color: #111;
+}
+
+.voice-mic-btn.active {
+  background: #e53e3e;
+  color: white;
+  animation: pulse-red 1.2s infinite;
+}
+
+.voice-status-bar {
+  padding: 4px 16px;
+  background: #131317;
+  font-size: 11px;
+  color: #a0aec0;
+  font-style: italic;
+}
+
+@media (max-width: 480px) {
+  .voice-assistant-drawer {
+    left: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    border: none;
+    z-index: 1000;
+  }
+  .voice-assistant-fab {
+    bottom: 16px;
+    left: 16px;
+  }
+}
+
+/* Source badge styles */
+.voice-source-badge {
+  display: block;
+  font-size: 9px;
+  margin-top: 6px;
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
+}
+
+.voice-source-badge.gemini {
+  color: #a78bfa; /* Violet/Purple for Gemini */
+  text-shadow: 0 0 4px rgba(167, 139, 250, 0.4);
+}
+
+.voice-source-badge.local {
+  color: #4ade80; /* Green for Local agent fallback */
+}
+
+.voice-source-badge.sarvam {
+  color: #3b82f6; /* Beautiful Blue for Sarvam AI */
+  text-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+}

@@ -19,8 +19,7 @@ const itemVariants = {
 };
 
 function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, isVerified, formatCurrency }) {
-  const { t, language, API_BASE_URL, checkDesignSimilarity, registerDesign, getDesignProof, refreshData } = useContext(CraftShieldContext);
-
+  const { t, language, API_BASE_URL, checkDesignSimilarity, registerDesign, getDesignProof, refreshData, submitDesignDispute } = useContext(CraftShieldContext);
 
   const getImageUrl = (url) => {
     if (!url) return '';
@@ -39,6 +38,12 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
   const [matches, setMatches] = useState([]);
   const [checkingSimilarity, setCheckingSimilarity] = useState(false);
 
+  // Dispute States
+  const [justification, setJustification] = useState('');
+  const [proofImageUrl, setProofImageUrl] = useState('');
+  const [submittingDispute, setSubmittingDispute] = useState(false);
+  const [uploadingProof, setUploadingProof] = useState(false);
+
   const handleAnchorClick = async (e) => {
     e.stopPropagation();
     if (checkingSimilarity || verifying) return;
@@ -49,7 +54,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
         setMatches(simResult.matches);
         setShowWarningModal(true);
       } else {
-        await executeRegistration(false);
+        await executeRegistration();
       }
     } catch (err) {
       toast.error(err.message || "Failed similarity scan");
@@ -58,20 +63,76 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
     }
   };
 
-  const executeRegistration = async (override = false) => {
+  const executeRegistration = async () => {
     if (verifying) return;
     setVerifying(true);
     try {
-      await registerDesign(product.id, override);
+      await registerDesign(product.id, false);
       toast.success("Design proof registered successfully on VeChain!");
       setShowWarningModal(false);
       await refreshData();
     } catch (err) {
-      toast.error(err.message || "Failed to register design proof");
+      // If the backend returned a 409 similarity conflict, show the Warning modal for dispute
+      if (err.warnings && err.warnings.length > 0) {
+        setMatches(err.warnings);
+        setShowWarningModal(true);
+      } else {
+        toast.error(err.message || "Failed to register design proof");
+      }
     } finally {
       setVerifying(false);
     }
   };
+
+  const handleProofImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('files', file);
+
+    setUploadingProof(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      if (data && data.length > 0) {
+        setProofImageUrl(data[0]);
+        toast.success("Proof document uploaded successfully!");
+      }
+    } catch (err) {
+      toast.error("Could not upload proof image: " + err.message);
+    } finally {
+      setUploadingProof(false);
+    }
+  };
+
+  const handleSubmitDispute = async (e) => {
+    if (e) e.preventDefault();
+    if (!justification.trim()) {
+      toast.error("Please provide a justification describing the originality of your design.");
+      return;
+    }
+    setSubmittingDispute(true);
+    try {
+      await submitDesignDispute(product.id, justification, proofImageUrl);
+      toast.success("Design dispute submitted successfully to admin review!");
+      setShowWarningModal(false);
+      setJustification('');
+      setProofImageUrl('');
+      await refreshData();
+    } catch (err) {
+      toast.error(err.message || "Failed to submit design dispute");
+    } finally {
+      setSubmittingDispute(false);
+    }
+  };
+
 
   const handleShowProof = async (e) => {
     e.stopPropagation();
@@ -234,7 +295,15 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
           <span>{t('Delivery')}: <strong>{product.estimated_delivery_days} {getDaysTranslation()}</strong></span>
         </div>
         <div className="blockchain-provenance-section mt-4 pt-3 border-t">
-          {product.design_hash ? (
+          {product.moderation_status === "pending" ? (
+            <div 
+              className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-1.5 rounded-md border border-amber-200"
+              style={{ display: 'inline-flex', background: '#fff8e1', color: '#b78103', border: '1px solid #ffe082', padding: '4px 8px', borderRadius: '4px', gap: '4px' }}
+            >
+              <Info size={14} />
+              <span>Pending Admin Review</span>
+            </div>
+          ) : product.design_hash ? (
             <div 
               className="flex items-center gap-1.5 text-xs font-semibold text-teal bg-teal-light px-2.5 py-1.5 rounded-md border border-teal-variant cursor-pointer hover:opacity-90 transition-opacity"
               onClick={handleShowProof}
@@ -359,7 +428,6 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
           </div>
         )}
       </Modal>
-
       {/* Warning Modal */}
       <Modal 
         isOpen={showWarningModal} 
@@ -381,7 +449,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
             <p className="text-xs font-semibold text-muted" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Similar Matches Found:</p>
             <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-2 bg-gray-50" style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '8px', padding: '8px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {matches.map((match) => (
-                <div key={match.product_id} className="flex gap-3 bg-white p-2.5 rounded border items-center" style={{ display: 'flex', gap: '12px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #eee', alignItems: 'center' }}>
+                <div key={match.product_id || match._id} className="flex gap-3 bg-white p-2.5 rounded border items-center" style={{ display: 'flex', gap: '12px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #eee', alignItems: 'center' }}>
                   <img 
                     src={getImageUrl(match.image_url)} 
                     alt={match.name} 
@@ -390,8 +458,10 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
                   />
                   <div className="flex-1 min-w-0" style={{ flex: 1, minWidth: 0 }}>
                     <p className="font-semibold text-xs truncate" style={{ fontWeight: 'bold', fontSize: '12px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.name}</p>
-                    <p className="text-[11px] text-muted truncate" style={{ fontSize: '11px', color: '#888', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Artisan: {match.artisan_business_name}</p>
-                    <p className="text-[11px] text-secondary font-medium" style={{ fontSize: '11px', color: 'var(--color-secondary)', fontWeight: '500', margin: 0 }}>Similarity: {(100 - (match.distance * 100 / 64)).toFixed(0)}% match</p>
+                    <p className="text-[11px] text-muted truncate" style={{ fontSize: '11px', color: '#888', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Artisan ID: {match.artisan_id}</p>
+                    {match.ai_similarity_score !== undefined && (
+                      <p className="text-[11px] text-secondary font-medium" style={{ fontSize: '11px', color: 'var(--color-secondary)', fontWeight: '500', margin: 0 }}>AI Similarity: {(match.ai_similarity_score * 100).toFixed(0)}% match</p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -399,23 +469,57 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
           </div>
 
           <div className="bg-gray-100 p-3 rounded text-xs text-muted" style={{ background: '#f5f5f5', padding: '8px', borderRadius: '6px', fontSize: '11px', color: '#666' }}>
-            <strong>Note on Provenance:</strong> Proceeding with this anchoring will register your timestamped design bundle on the blockchain. 
-            However, this registration will be flagged for review to ensure there is no infringement of earlier works.
+            <strong>Direct Override Disabled:</strong> To resolve this similarity conflict and register your design, you must submit a formal Dispute requesting manual Admin Review with supporting originality proof.
           </div>
 
-          <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button className="btn btn-secondary text-xs" style={{ fontSize: '12px' }} onClick={() => setShowWarningModal(false)}>
-              Cancel
-            </button>
-            <button 
-              className="btn btn-logout text-xs bg-amber-600 hover:bg-amber-700 text-white" 
-              onClick={() => executeRegistration(true)}
-              disabled={verifying}
-              style={{ fontSize: '12px', background: '#d32f2f', color: '#fff' }}
-            >
-              {verifying ? "Registering..." : "Override & Register Anyway"}
-            </button>
-          </div>
+          <form onSubmit={handleSubmitDispute} className="space-y-3 mt-2" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="input-group">
+              <label className="input-label" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Design Originality / Lineage / Inspiration *</label>
+              <textarea
+                className="input-field"
+                value={justification}
+                onChange={e => setJustification(e.target.value)}
+                placeholder="Explain the unique handcrafted lineage, custom client instructions, or specific patterns of your original design..."
+                style={{ fontSize: '12px', minHeight: '60px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                required
+              />
+            </div>
+            
+            <div className="input-group">
+              <label className="input-label" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Upload Legitimacy Proof (Sketches, CAD designs, or raw metal workbench photos)</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleProofImageUpload}
+                style={{ fontSize: '11px' }}
+              />
+              {uploadingProof && <span style={{ fontSize: '11px', color: '#888' }}>Uploading proof image...</span>}
+              {proofImageUrl && (
+                <div style={{ marginTop: '8px' }}>
+                  <span style={{ fontSize: '11px', color: '#2e7d32', fontWeight: 'bold' }}>✓ Proof Uploaded:</span>
+                  <img
+                    src={getImageUrl(proofImageUrl)}
+                    alt="Dispute Proof"
+                    style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd', marginTop: '4px' }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" className="btn btn-secondary text-xs" style={{ fontSize: '12px' }} onClick={() => setShowWarningModal(false)}>
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                className="btn btn-primary text-xs" 
+                disabled={submittingDispute || uploadingProof}
+                style={{ fontSize: '12px', background: '#e65100', color: '#fff', border: 'none' }}
+              >
+                {submittingDispute ? "Submitting Dispute..." : "Submit Dispute for Admin Review"}
+              </button>
+            </div>
+          </form>
         </div>
       </Modal>
     </div>
@@ -488,6 +592,7 @@ export default function ArtisanDashboard() {
     updateOrderStatus,
     requestExtension,
     uploadImages,
+    submitDesignDispute,
     t,
     language
   } = useContext(CraftShieldContext);
@@ -506,6 +611,64 @@ export default function ArtisanDashboard() {
   const [editUploadedImages, setEditUploadedImages] = useState([]);
 
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+
+  // Immediate upload similarity warning/dispute state
+  const [createdConflictProduct, setCreatedConflictProduct] = useState(null);
+  const [showCreatedConflictModal, setShowCreatedConflictModal] = useState(false);
+  const [createDisputeJustification, setCreateDisputeJustification] = useState('');
+  const [createDisputeProofUrl, setCreateDisputeProofUrl] = useState('');
+  const [isSubmittingCreateDispute, setIsSubmittingCreateDispute] = useState(false);
+  const [isUploadingCreateProof, setIsUploadingCreateProof] = useState(false);
+
+  const handleCreateDisputeProofUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('files', file);
+
+    setIsUploadingCreateProof(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      if (data && data.length > 0) {
+        setCreateDisputeProofUrl(data[0]);
+        toast.success("Proof document uploaded successfully!");
+      }
+    } catch (err) {
+      toast.error("Could not upload proof image: " + err.message);
+    } finally {
+      setIsUploadingCreateProof(false);
+    }
+  };
+
+  const handleCreateDisputeSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!createdConflictProduct) return;
+    if (!createDisputeJustification.trim()) {
+      toast.error("Please provide a justification describing the originality of your design.");
+      return;
+    }
+    setIsSubmittingCreateDispute(true);
+    try {
+      await submitDesignDispute(createdConflictProduct.id, createDisputeJustification, createDisputeProofUrl);
+      toast.success("Design dispute submitted successfully to admin review!");
+      setShowCreatedConflictModal(false);
+      setCreatedConflictProduct(null);
+      setCreateDisputeJustification('');
+      setCreateDisputeProofUrl('');
+    } catch (err) {
+      toast.error(err.message || "Failed to submit design dispute");
+    } finally {
+      setIsSubmittingCreateDispute(false);
+    }
+  };
   const [isSubmittingQuote, setIsSubmittingQuote] = useState(false);
   const [isSubmittingExtension, setIsSubmittingExtension] = useState(false);
   const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
@@ -754,7 +917,7 @@ export default function ArtisanDashboard() {
 
     setIsSubmittingProduct(true);
     try {
-      await createProduct({
+      const res = await createProduct({
         name,
         description,
         category,
@@ -764,8 +927,7 @@ export default function ArtisanDashboard() {
         image_urls: secondaryImages,
         estimated_delivery_days: parseInt(estimated_delivery_days)
       });
-      toast.success('Product uploaded successfully!');
-      setIsProductModalOpen(false);
+      
       setProductForm({
         name: '',
         description: '',
@@ -775,6 +937,15 @@ export default function ArtisanDashboard() {
         estimated_delivery_days: ''
       });
       setUploadedImages([]);
+      setIsProductModalOpen(false);
+
+      if (res && res.similarity_conflict) {
+        setCreatedConflictProduct(res);
+        setShowCreatedConflictModal(true);
+        toast.error('Design similarity conflict detected! Product saved but set to inactive pending admin review.', { duration: 6000 });
+      } else {
+        toast.success('Product uploaded successfully!');
+      }
     } catch (err) {
       toast.error(err.message || 'Product upload failed');
     } finally {
@@ -1537,7 +1708,7 @@ export default function ArtisanDashboard() {
                       }}
                       title="Remove image"
                     >
-                      \u2715
+                      <span className="notranslate">{'\u2715'}</span>
                     </button>
                     {idx === 0 ? (
                       <span style={{
@@ -1729,7 +1900,7 @@ export default function ArtisanDashboard() {
                         }}
                         title="Remove image"
                       >
-                        \u2715
+                        <span className="notranslate">{'\u2715'}</span>
                       </button>
                       {idx === 0 ? (
                         <span style={{
@@ -1840,6 +2011,119 @@ export default function ArtisanDashboard() {
               </button>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* Immediate Similarity Conflict/Dispute Modal */}
+      <Modal 
+        isOpen={showCreatedConflictModal} 
+        onClose={() => {
+          setShowCreatedConflictModal(false);
+          setCreatedConflictProduct(null);
+          setCreateDisputeJustification('');
+          setCreateDisputeProofUrl('');
+        }} 
+        title="Warning: High Similarity Detected during Upload"
+      >
+        {createdConflictProduct && (
+          <div className="space-y-4 text-sm" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 text-amber-800" style={{ background: '#fff8e1', padding: '12px', borderRadius: '8px', color: '#b78103', border: '1px solid #ffe082', display: 'flex', gap: '8px' }}>
+              <Info size={20} style={{ flexShrink: 0 }} />
+              <div>
+                <p className="font-semibold" style={{ fontWeight: 'bold' }}>Plagiarism Warning - Direct Anchoring Blocked</p>
+                <p className="text-xs mt-1" style={{ fontSize: '12px', marginTop: '4px' }}>
+                  Our similarity detection model flags this design as visually matching existing entries. 
+                  This product has been saved but set to **INACTIVE** and hidden from clients.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Conflicting Designs Found in Marketplace:</p>
+              <div className="max-h-60 overflow-y-auto space-y-2 border rounded-lg p-2 bg-gray-50" style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #ddd', borderRadius: '8px', padding: '8px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {createdConflictProduct.conflicting_products?.map((match) => (
+                  <div key={match.product_id} className="flex gap-3 bg-white p-2.5 rounded border items-center" style={{ display: 'flex', gap: '12px', background: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #eee', alignItems: 'center' }}>
+                    <img 
+                      src={getImageUrl(match.image_url)} 
+                      alt={match.name} 
+                      className="w-12 h-12 object-cover rounded border" 
+                      style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd' }}
+                    />
+                    <div className="flex-1 min-w-0" style={{ flex: 1, minWidth: 0 }}>
+                      <p className="font-semibold text-xs truncate" style={{ fontWeight: 'bold', fontSize: '12px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.name}</p>
+                      <p className="text-[11px] text-muted truncate" style={{ fontSize: '11px', color: '#888', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Artisan ID: {match.artisan_id}</p>
+                      {match.ai_similarity_score !== undefined && (
+                        <p className="text-[11px] text-secondary font-medium" style={{ fontSize: '11px', color: 'var(--color-secondary)', fontWeight: '500', margin: 0 }}>AI Similarity: {(match.ai_similarity_score * 100).toFixed(0)}% match</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gray-100 p-3 rounded text-xs text-muted" style={{ background: '#f5f5f5', padding: '8px', borderRadius: '6px', fontSize: '11px', color: '#666' }}>
+              To anchor and publish this design, you must submit a dispute ticket with written justification and visual proof files for manual Admin review.
+            </div>
+
+            <form onSubmit={handleCreateDisputeSubmit} className="space-y-3 mt-2" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div className="input-group">
+                <label className="input-label" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Design Origin & Cultural Justification *</label>
+                <textarea
+                  className="input-field"
+                  value={createDisputeJustification}
+                  onChange={e => setCreateDisputeJustification(e.target.value)}
+                  placeholder="Explain the unique handcrafted lineage, custom client instructions, or specific patterns of your original design..."
+                  style={{ fontSize: '12px', minHeight: '60px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  required
+                />
+              </div>
+              
+              <div className="input-group">
+                <label className="input-label" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Upload Originality Proof (Sketches, CAD files, workshop workbench photos)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCreateDisputeProofUpload}
+                  style={{ fontSize: '11px' }}
+                />
+                {isUploadingCreateProof && <span style={{ fontSize: '11px', color: '#888' }}>Uploading proof image...</span>}
+                {createDisputeProofUrl && (
+                  <div style={{ marginTop: '8px' }}>
+                    <span style={{ fontSize: '11px', color: '#2e7d32', fontWeight: 'bold' }}>✓ Proof Uploaded:</span>
+                    <img
+                      src={getImageUrl(createDisputeProofUrl)}
+                      alt="Dispute Proof"
+                      style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ddd', marginTop: '4px' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4 flex justify-end gap-2" style={{ borderTop: '1px solid #eee', paddingTop: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary text-xs" 
+                  style={{ fontSize: '12px' }} 
+                  onClick={() => {
+                    setShowCreatedConflictModal(false);
+                    setCreatedConflictProduct(null);
+                    setCreateDisputeJustification('');
+                    setCreateDisputeProofUrl('');
+                  }}
+                >
+                  Close & Submit Later
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary text-xs" 
+                  disabled={isSubmittingCreateDispute || isUploadingCreateProof}
+                  style={{ fontSize: '12px', background: '#e65100', color: '#fff', border: 'none' }}
+                >
+                  {isSubmittingCreateDispute ? "Submitting Dispute..." : "Submit Dispute to Admin"}
+                </button>
+              </div>
+            </form>
+          </div>
         )}
       </Modal>
     </motion.div>
