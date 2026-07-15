@@ -37,7 +37,9 @@ def compute_cosine_similarity(v1, v2):
     except Exception:
         return 0.0
 
-JARVIS_AI_URL = "https://d1df344463100.notebooksn.jarvislabs.net/proxy/8000/extract-features"
+import os
+
+JARVIS_AI_URL = os.getenv("AI_MICROSERVICE_URL", "http://localhost:8000/extract-features")
 
 async def get_ai_embedding(image_url: str):
     image_bytes = read_local_upload_bytes(image_url)
@@ -197,7 +199,7 @@ async def create_product(payload: ProductCreate, current_user: dict = Depends(re
         for prod in all_products:
             if str(prod.get("artisan_id")) != str(current_user["_id"]):
                 score = compute_cosine_similarity(fingerprint["ai_embedding"], prod["ai_embedding"])
-                if score > 0.90:  # 90% threshold
+                if score > 0.80:  # 80% threshold (Lowered to catch background removals)
                     similarity_conflict = True
                     # Avoid duplicate entry if pHash already caught it
                     if not any(c["product_id"] == str(prod["_id"]) for c in conflicting_products):
