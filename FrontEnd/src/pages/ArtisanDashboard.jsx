@@ -212,6 +212,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
             CraftShield Protected
           </div>
         </div>
+
         <div className="product-category-badge label-sm"><DynamicTranslate text={product.category} /></div>
         
         {images.length > 1 && (
@@ -489,7 +490,7 @@ function CatalogProductCard({ product, handleDeleteProduct, handleEditProduct, i
               <label className="input-label" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Upload Legitimacy Proof (Sketches, CAD designs, or raw metal workbench photos)</label>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif,.webp,.avif,.bmp,.tiff"
                 onChange={handleProofImageUpload}
                 style={{ fontSize: '11px' }}
               />
@@ -567,6 +568,7 @@ function ReferenceImageSection({ url, getImageUrl }) {
             CraftShield
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -1670,7 +1672,7 @@ export default function ArtisanDashboard() {
               id="product-image-file-input"
               type="file" 
               style={{ display: 'none' }}
-              accept="image/*"
+              accept="image/*,.heic,.heif,.webp,.avif,.bmp,.tiff"
               multiple 
               onChange={handleProductFilesChange}
             />
@@ -1862,7 +1864,7 @@ export default function ArtisanDashboard() {
                 id="edit-product-image-file-input"
                 type="file" 
                 style={{ display: 'none' }}
-                accept="image/*"
+                accept="image/*,.heic,.heif,.webp,.avif,.bmp,.tiff"
                 multiple 
                 onChange={handleEditProductFilesChange}
               />
@@ -2082,7 +2084,7 @@ export default function ArtisanDashboard() {
                 <label className="input-label" style={{ fontSize: '11px', color: '#666', fontWeight: 'bold' }}>Upload Originality Proof (Sketches, CAD files, workshop workbench photos)</label>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.heic,.heif,.webp,.avif,.bmp,.tiff"
                   onChange={handleCreateDisputeProofUpload}
                   style={{ fontSize: '11px' }}
                 />
