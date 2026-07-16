@@ -39,7 +39,7 @@ def compute_cosine_similarity(v1, v2):
 
 import os
 
-JARVIS_AI_URL = os.getenv("AI_MICROSERVICE_URL", "http://localhost:8000/extract-features")
+JARVIS_AI_URL = os.getenv("AI_MICROSERVICE_URL", "http://localhost:8000/extract-features").strip()
 
 async def get_ai_embedding(image_url: str):
     image_bytes = read_local_upload_bytes(image_url)
