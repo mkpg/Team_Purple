@@ -96,22 +96,36 @@ app.include_router(verification_router)
 app.include_router(chat_router)
 app.include_router(voice_assistant_router)
 
+import base64
+from io import BytesIO
+from PIL import Image
+
 # Multi-Image File Uploading Route
 @app.post("/api/upload", tags=["Upload"])
 async def upload_files(files: List[UploadFile] = File(...)):
     urls = []
     for file in files:
-        # Create a unique filename
-        ext = os.path.splitext(file.filename)[1]
-        unique_filename = f"{uuid.uuid4()}{ext}"
-        filepath = os.path.join("uploads", unique_filename)
-        
-        # Save file to disk
-        with open(filepath, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        content = await file.read()
+        try:
+            # Compress and resize to stay well under MongoDB 16MB limit
+            img = Image.open(BytesIO(content))
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
             
-        # Return URL path
-        urls.append(f"/uploads/{unique_filename}")
+            img.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
+            buffered = BytesIO()
+            img.save(buffered, format="JPEG", quality=85)
+            img_bytes = buffered.getvalue()
+            
+            b64_encoded = base64.b64encode(img_bytes).decode("utf-8")
+            urls.append(f"data:image/jpeg;base64,{b64_encoded}")
+        except Exception as e:
+            logger.error(f"Image compression failed: {e}")
+            # Fallback for non-image or unsupported formats
+            import mimetypes
+            mime = mimetypes.guess_type(file.filename)[0] or "application/octet-stream"
+            b64_encoded = base64.b64encode(content).decode("utf-8")
+            urls.append(f"data:{mime};base64,{b64_encoded}")
         
     return {"urls": urls}
 
