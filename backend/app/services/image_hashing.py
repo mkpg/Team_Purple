@@ -89,8 +89,20 @@ def build_fingerprint(image_bytes: bytes) -> Dict:
 
 
 def read_local_upload_bytes(image_url: Optional[str]) -> Optional[bytes]:
-    """Read an uploaded image URL such as /uploads/name.jpg from disk."""
-    if not image_url or not image_url.startswith("/uploads/"):
+    """Read an uploaded image URL (or Base64 data URI)."""
+    if not image_url:
+        return None
+        
+    if image_url.startswith("data:"):
+        import base64
+        try:
+            # Format is typically data:image/jpeg;base64,.....
+            header, encoded = image_url.split(",", 1)
+            return base64.b64decode(encoded)
+        except Exception:
+            return None
+
+    if not image_url.startswith("/uploads/"):
         return None
 
     filename = os.path.basename(image_url)
