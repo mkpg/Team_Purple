@@ -187,7 +187,7 @@ async def create_product(payload: ProductCreate, current_user: dict = Depends(re
             if str(match.get("artisan_id")) != str(current_user["_id"]):
                 similarity_conflict = True
                 conflicting_products.append({
-                    "product_id": str(match["_id"]),
+                    "product_id": str(match["product_id"]),
                     "name": match.get("name"),
                     "image_url": match.get("image_url"),
                     "artisan_id": str(match.get("artisan_id"))
