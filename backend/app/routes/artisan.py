@@ -199,7 +199,7 @@ async def create_product(payload: ProductCreate, current_user: dict = Depends(re
         for prod in all_products:
             if str(prod.get("artisan_id")) != str(current_user["_id"]):
                 score = compute_cosine_similarity(fingerprint["ai_embedding"], prod["ai_embedding"])
-                if score > 0.60:  # 60% threshold to aggressively catch cropped/altered AI generations
+                if score > 0.80:  # 80% threshold for DINOv2
                     similarity_conflict = True
                     # Avoid duplicate entry if pHash already caught it
                     if not any(c["product_id"] == str(prod["_id"]) for c in conflicting_products):
@@ -295,7 +295,7 @@ async def check_uploaded_image_similarity(payload: SimilarityImageCheck, current
             for prod in all_products:
                 if str(prod.get("artisan_id")) != str(current_user["_id"]):
                     score = compute_cosine_similarity(new_embedding, prod["ai_embedding"])
-                    if score > 0.90:  # 90% structural match threshold
+                    if score > 0.80:  # 80% structural match threshold
                         # Avoid duplicating if pHash already caught it
                         if not any(str(m.get("_id")) == str(prod["_id"]) for m in matches):
                             matches.append({
@@ -420,7 +420,7 @@ async def check_product_similarity(product_id: str, current_user: dict = Depends
         for prod in all_products:
             if str(prod["_id"]) != product_id and str(prod.get("artisan_id")) != str(current_user["_id"]):
                 score = compute_cosine_similarity(ai_embedding, prod["ai_embedding"])
-                if score > 0.90:  # 90% threshold
+                if score > 0.80:  # 80% threshold
                     if not any(c["product_id"] == str(prod["_id"]) for c in conflicting_products):
                         conflicting_products.append({
                             "product_id": str(prod["_id"]),
@@ -734,8 +734,7 @@ async def register_product_design(product_id: str, payload: RegisterDesignReques
             if str(p.get("artisan_id")) != str(current_user["_id"]):
                 score = compute_cosine_similarity(ai_emb, p["ai_embedding"])
                 print(f"🔍 AI SIMILARITY SCORE: {score:.3f} (Comparing '{product.get('name')}' against '{p.get('name')}')")
-                # Lowered to 0.50 for the hackathon demo to aggressively block similar objects in different lighting/zoom
-                if score >= 0.50:
+                if score >= 0.80:
                     if not any(str(m.get("_id")) == str(p["_id"]) for m in matches):
                         matches.append({
                             "_id": str(p["_id"]),
@@ -841,7 +840,7 @@ async def submit_product_dispute(product_id: str, payload: SubmitDisputeRequest,
         for p in all_products:
             if str(p.get("artisan_id")) != str(current_user["_id"]):
                 score = compute_cosine_similarity(ai_emb, p["ai_embedding"])
-                if score >= 0.50:
+                if score >= 0.80:
                     if not any(str(m.get("_id")) == str(p["_id"]) for m in matches):
                         matches.append({
                             "_id": str(p["_id"]),
@@ -897,4 +896,3 @@ async def submit_product_dispute(product_id: str, payload: SubmitDisputeRequest,
         await disputes_coll.insert_one(new_dispute)
 
     return {"status": "success", "message": "Design dispute submitted for admin review"}
-
