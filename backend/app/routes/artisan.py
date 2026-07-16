@@ -199,7 +199,7 @@ async def create_product(payload: ProductCreate, current_user: dict = Depends(re
         for prod in all_products:
             if str(prod.get("artisan_id")) != str(current_user["_id"]):
                 score = compute_cosine_similarity(fingerprint["ai_embedding"], prod["ai_embedding"])
-                if score > 0.80:  # 80% threshold (Lowered to catch background removals)
+                if score > 0.60:  # 60% threshold to aggressively catch cropped/altered AI generations
                     similarity_conflict = True
                     # Avoid duplicate entry if pHash already caught it
                     if not any(c["product_id"] == str(prod["_id"]) for c in conflicting_products):
