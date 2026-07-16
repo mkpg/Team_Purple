@@ -131,6 +131,7 @@ export function MarketplaceProductCard({ product, formatCurrency, setRequestForm
             CraftShield Protected
           </div>
         </div>
+
         <div className="product-category-badge label-sm"><DynamicTranslate text={product.category} /></div>
         
         {images.length > 1 && (
@@ -412,6 +413,7 @@ function ReferenceImageSection({ url, getImageUrl }) {
             CraftShield
           </div>
         </div>
+
       </div>
     </div>
   );
@@ -1427,7 +1429,7 @@ export default function ClientDashboard() {
             <input 
               type="file" 
               className="input-field" 
-              accept="image/*"
+              accept="image/*,.heic,.heif,.webp,.avif,.bmp,.tiff"
               onChange={handleReferenceFileChange}
             />
             {isUploading && <span className="label-sm text-secondary animate-pulse" style={{ display: 'block', marginTop: '4px' }}>Uploading file...</span>}
